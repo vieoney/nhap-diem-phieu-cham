@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nhập Điểm Phiếu Chấm</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: thanh công cụ trên cùng, các tab; tab Phiếu chấm chia đôi: ảnh phiếu bên trái, bảng điểm bên phải */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1d2430; --muted:#5d6878; --line:#dde2ea; --soft:#eef1f5;
+  --accent:#b3261e;      /* mực đỏ của giám khảo */
+  --accent-ink:#ffffff; --accent-soft:#fbe9e7;
+  --ok:#1f7a4d; --ok-soft:#e3f3ea; --warn:#9a6200; --warn-soft:#fff3d6; --bad:#b3261e; --bad-soft:#fde7e5;
+  --info:#2457a6; --info-soft:#e6eefb;
+  --f-ui:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12161c; --panel:#1a2029; --ink:#e7ebf1; --muted:#9aa5b5; --line:#2c3542; --soft:#222a35;
+  --accent:#ef6b5e; --accent-ink:#1a0d0b; --accent-soft:#3a1d1a;
+  --ok:#5fcf95; --ok-soft:#163326; --warn:#f0b847; --warn-soft:#3a2d10; --bad:#ff8a80; --bad-soft:#3d1c1a;
+  --info:#8db4f5; --info-soft:#1b2a44; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12161c; --panel:#1a2029; --ink:#e7ebf1; --muted:#9aa5b5; --line:#2c3542; --soft:#222a35;
+  --accent:#ef6b5e; --accent-ink:#1a0d0b; --accent-soft:#3a1d1a;
+  --ok:#5fcf95; --ok-soft:#163326; --warn:#f0b847; --warn-soft:#3a2d10; --bad:#ff8a80; --bad-soft:#3d1c1a;
+  --info:#8db4f5; --info-soft:#1b2a44; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-ui)}
+button,input,select{font:inherit;color:inherit}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{background:var(--panel);border-bottom:1px solid var(--line);padding-block:12px}
+.top-in{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand .mark{width:30px;height:30px;border-radius:6px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-family:var(--f-mono);font-size:14px}
+.brand h1{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em}
+.brand small{display:block;color:var(--muted);font-size:12.5px;font-weight:400}
+.steps{display:flex;flex-wrap:wrap;gap:8px}
+.step{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:6px 12px 6px 6px;background:var(--panel);cursor:pointer}
+.step:hover{border-color:var(--muted)}
+.step .n{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--soft);font-size:12px;font-weight:600}
+.step.done .n{background:var(--ok);color:#fff}
+.step b{font-weight:600;font-size:14px}
+.step span.sub{color:var(--muted);font-size:12.5px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:var(--r);padding:8px 14px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.small{padding:4px 10px;font-size:13.5px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:focus-visible,.step:focus-visible,input:focus-visible,select:focus-visible,.tab:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);background:var(--panel);overflow-x:auto}
+.tab{border:0;background:none;padding:10px 14px;cursor:pointer;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .cnt{font-family:var(--f-mono);font-size:12px;background:var(--soft);border-radius:999px;padding:1px 7px;margin-left:4px}
+main{padding-block:16px}
+.view[hidden]{display:none!important}
+.notice{border:1px solid var(--line);border-left:4px solid var(--info);background:var(--info-soft);padding:10px 14px;border-radius:var(--r);margin-bottom:14px;font-size:14px}
+.notice.warn{border-left-color:var(--warn);background:var(--warn-soft)}
+/* Phiếu chấm */
+.review{display:grid;grid-template-columns:220px minmax(0,1.1fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:1100px){.review{grid-template-columns:200px minmax(0,1fr)}.review .pane-table{grid-column:1/-1}}
+@media (max-width:700px){.review{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);min-width:0}
+.panel h2{font-size:14px;margin:0;padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between}
+.pagelist{max-height:calc(100vh - 230px);overflow:auto;padding:6px}
+.pg{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:8px 10px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+.pg:hover{background:var(--soft)}
+.pg.sel{border-color:var(--accent);background:var(--accent-soft)}
+.pg .t{font-weight:600;font-size:13.5px}
+.pg .f{color:var(--muted);font-size:12px;grid-column:1/-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip{font-size:11.5px;border-radius:999px;padding:1px 8px;font-weight:600;white-space:nowrap;align-self:center}
+.chip.wait{background:var(--soft);color:var(--muted)}
+.chip.run{background:var(--info-soft);color:var(--info)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.viewer{position:relative}
+.vtools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.vtools .zoom{font-family:var(--f-mono);font-size:12.5px;min-width:44px;text-align:center}
+.canvasbox{overflow:auto;max-height:calc(100vh - 230px);background:var(--soft);display:flex;justify-content:center}
+.canvasbox canvas{display:block;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.empty{padding:28px 18px;color:var(--muted);text-align:center;font-size:14px}
+.tablewrap{overflow:auto;max-height:calc(100vh - 290px)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:middle}
+th{position:sticky;top:0;background:var(--panel);font-size:12px;color:var(--muted);font-weight:600;z-index:1;white-space:nowrap}
+td.num,th.num{text-align:center}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+tr.flag td{background:var(--warn-soft)}
+tr.bad td{background:var(--bad-soft)}
+tr.checked td{background:transparent}
+td input.sc{width:52px;text-align:center;font-family:var(--f-mono);border:1px solid var(--line);border-radius:4px;padding:3px 2px;background:var(--panel)}
+td input.sc.tot{width:60px;font-weight:600}
+td input.ph{width:76px;font-family:var(--f-mono);border:1px solid var(--line);border-radius:4px;padding:3px 4px;background:var(--panel)}
+.who{font-size:12.5px;line-height:1.3}
+.who .nm{font-weight:600}
+.who .sub{color:var(--muted)}
+.issue{font-size:12px;color:var(--warn);line-height:1.3}
+.issue.bad{color:var(--bad)}
+.pagefoot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--line)}
+.miss{font-size:12.5px;color:var(--bad)}
+/* Danh sách */
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.bar input[type=search],.bar select,.fld input,.fld select{border:1px solid var(--line);border-radius:var(--r);padding:7px 10px;background:var(--panel)}
+.bar input[type=search]{min-width:min(260px,100%)}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
+.stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.stat .v{font-family:var(--f-mono);font-size:20px;font-weight:600}
+.stat .s{font-size:12.5px;color:var(--muted)}
+/* Cấu hình */
+.cfg{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.cfg .panel{padding-bottom:6px}
+.fld{display:grid;gap:4px;padding:8px 12px}
+.fld label{font-size:13px;color:var(--muted);font-weight:500}
+.check{display:flex;align-items:center;gap:8px;padding:4px 12px;font-size:14px}
+.cols{padding:4px 8px 8px}
+.colrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:3px 4px;border-radius:6px}
+.colrow:hover{background:var(--soft)}
+.colrow input[type=text]{border:1px solid var(--line);border-radius:5px;padding:4px 8px;background:var(--panel);min-width:0}
+.colrow .key{font-size:11px;color:var(--muted)}
+.iconbtn{border:1px solid var(--line);background:var(--panel);border-radius:5px;width:28px;height:28px;cursor:pointer;line-height:1}
+.progress{height:6px;background:var(--soft);border-radius:999px;overflow:hidden;min-width:120px;flex:1}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.runbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;margin-bottom:12px}
+.toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:var(--r);font-size:14px;max-width:min(420px,calc(100vw - 32px));z-index:50;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.kbd{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--panel)}
+.help{color:var(--muted);font-size:13px}
+.confirm{display:inline-flex;gap:6px;align-items:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top wrap">
+  <div class="top-in">
+    <div class="brand"><div class="mark">9,5</div><div><h1>Nhập Điểm Phiếu Chấm</h1><small>Đọc điểm từ phiếu scan · ghép mã phách · xuất Excel</small></div></div>
+    <div class="steps">
+      <button class="step" id="st1" type="button"><span class="n">1</span><span><b>File đầu phách</b><br><span class="sub" id="st1s">Chưa mở (.xlsx)</span></span></button>
+      <button class="step" id="st2" type="button"><span class="n">2</span><span><b>Phiếu chấm PDF</b><br><span class="sub" id="st2s">Chưa mở</span></span></button>
+      <button class="step" id="st3" type="button"><span class="n">3</span><span><b>Đọc tự động</b><br><span class="sub" id="st3s">0 trang đã đọc</span></span></button>
+      <button class="step" id="st4" type="button"><span class="n">4</span><span><b>Xuất Excel</b><br><span class="sub" id="st4s">Theo cấu hình</span></span></button>
+    </div>
+  </div>
+  <input type="file" id="fMap" accept=".xlsx,.xls" hidden>
+  <input type="file" id="fPdf" accept="application/pdf,.pdf" multiple hidden>
+</header>
+<nav class="tabs wrap" role="tablist">
+  <button class="tab" role="tab" data-v="phieu" aria-selected="true">Phiếu chấm <span class="cnt" id="cPages">0</span></button>
+  <button class="tab" role="tab" data-v="ds" aria-selected="false">Danh sách học sinh <span class="cnt" id="cStu">0</span></button>
+  <button class="tab" role="tab" data-v="pk" aria-selected="false">Phúc khảo <span class="cnt" id="cPk">0</span></button>
+  <button class="tab" role="tab" data-v="cfg" aria-selected="false">Cấu hình xuất Excel</button>
+</nav>
+
+<main class="wrap">
+  <div id="aiNote" class="notice warn" hidden></div>
+
+  <!-- PHIẾU CHẤM -->
+  <section class="view" id="v-phieu">
+    <div class="runbar" id="runbar">
+      <button class="btn primary" id="bRun" type="button">Đọc tự động các trang chưa đọc</button>
+      <button class="btn" id="bStop" type="button" hidden>Dừng</button>
+      <div class="progress" aria-hidden="true"><i id="prog"></i></div>
+      <span class="help" id="runMsg">Mở file đầu phách và file PDF phiếu chấm để bắt đầu.</span>
+    </div>
+    <div class="review">
+      <div class="panel">
+        <h2>Các trang <button class="btn small" id="bAddPdf" type="button">+ PDF</button></h2>
+        <div class="pagelist" id="pageList"><div class="empty">Chưa có trang nào.<br>Bấm <b>+ PDF</b> để mở file phiếu chấm scan (mỗi trang là một túi bài).</div></div>
+      </div>
+      <div class="panel viewer">
+        <h2><span id="pgTitle">Ảnh phiếu</span>
+          <span class="vtools">
+            <button class="iconbtn" id="zOut" type="button" aria-label="Thu nhỏ">−</button>
+            <span class="zoom mono" id="zLbl">100%</span>
+            <button class="iconbtn" id="zIn" type="button" aria-label="Phóng to">+</button>
+            <button class="iconbtn" id="pPrev" type="button" aria-label="Trang trước">←</button>
+            <button class="iconbtn" id="pNext" type="button" aria-label="Trang sau">→</button>
+          </span>
+        </h2>
+        <div class="canvasbox" id="cbox"><div class="empty" id="cEmpty">Ảnh trang phiếu sẽ hiện ở đây.<br>Dùng phím <span class="kbd">←</span> <span class="kbd">→</span> để chuyển trang.</div><canvas id="cv" hidden></canvas></div>
+      </div>
+      <div class="panel pane-table">
+        <h2><span id="tblTitle">Điểm đọc được</span>
+          <span class="vtools"><button class="btn small" id="bReread" type="button" disabled>Đọc lại trang này</button></span></h2>
+        <div class="tablewrap" id="tblWrap"><div class="empty">Chọn một trang ở cột bên trái.</div></div>
+        <div class="pagefoot" id="pgFoot" hidden>
+          <span class="miss" id="pgMiss"></span>
+          <span style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn small" id="bAddRow" type="button">+ Thêm dòng</button>
+            <button class="btn small primary" id="bReviewed" type="button">Đã soát xong trang ✓</button>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DANH SÁCH -->
+  <section class="view" id="v-ds" hidden>
+    <div class="stats" id="stats"></div>
+    <div class="bar">
+      <input type="search" id="q" placeholder="Tìm SBD, họ tên, mã phách…" aria-label="Tìm kiếm">
+      <select id="fMon" aria-label="Môn"></select>
+      <select id="fLop" aria-label="Lớp"></select>
+      <select id="fSt" aria-label="Trạng thái">
+        <option value="">Mọi trạng thái</option><option value="Có điểm">Có điểm</option><option value="Cần kiểm tra">Cần kiểm tra</option>
+        <option value="Vắng">Vắng</option><option value="Thiếu điểm">Thiếu điểm</option><option value="Chưa có điểm">Chưa có điểm</option></select>
+      <span class="help" id="dsCount"></span>
+      <span style="margin-left:auto"></span>
+      <button class="btn primary" id="bExport2" type="button">Xuất Excel</button>
+    </div>
+    <div class="panel"><div class="tablewrap" style="max-height:calc(100vh - 300px)" id="dsWrap"></div></div>
+  </section>
+
+  <!-- PHÚC KHẢO -->
+  <section class="view" id="v-pk" hidden>
+    <div class="notice">Nhập điểm sau phúc khảo ở đây. Điểm gốc vẫn được giữ nguyên; sheet "Theo lớp" trong file Excel sẽ lấy điểm phúc khảo. Trong file Excel đã xuất, bạn cũng có thể nhập tiếp ở sheet "Phúc khảo".</div>
+    <div class="panel" style="padding:12px">
+      <form id="pkForm" class="bar" style="margin:0">
+        <input type="search" id="pkSbd" placeholder="SBD (vd VA10001)" aria-label="Số báo danh" style="min-width:150px">
+        <span id="pkWho" class="help" style="min-width:220px">Nhập SBD để xem học sinh và điểm gốc</span>
+        <input id="pkScore" inputmode="decimal" placeholder="Điểm mới" aria-label="Điểm sau phúc khảo" style="width:110px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--panel)">
+        <input id="pkNote" placeholder="Ghi chú" aria-label="Ghi chú" style="flex:1;min-width:160px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--panel)">
+        <button class="btn primary" type="submit">Lưu phúc khảo</button>
+      </form>
+    </div>
+    <div class="panel" style="margin-top:12px"><div class="tablewrap" id="pkWrap"></div></div>
+  </section>
+
+  <!-- CẤU HÌNH -->
+  <section class="view" id="v-cfg" hidden>
+    <div class="bar"><span class="help">Cấu hình được lưu trên máy này và dùng cho mọi lần xuất sau.</span><span style="margin-left:auto"></span>
+      <span id="resetBox"><button class="btn" id="bReset" type="button">Khôi phục mặc định</button></span>
+      <button class="btn primary" id="bExport3" type="button">Xuất Excel</button></div>
+    <div class="cfg" id="cfgBox"></div>
+  </section>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+(function(){
+"use strict";
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/đ/g,"d").replace(/Đ/g,"D").toLowerCase().trim();
+const coll=new Intl.Collator("vi",{sensitivity:"base"});
+const LS="nhapdiem.v1.";
+function lsGet(k,d){try{const v=localStorage.getItem(LS+k);return v?JSON.parse(v):d}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(LS+k,JSON.stringify(v))}catch(e){toast("Không lưu được vào trình duyệt (bộ nhớ đầy hoặc bị chặn). Dữ liệu vẫn dùng được đến khi đóng trang.")}}
+function toast(m,ms=3800){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,ms)}
+const fmt=(v,d)=>v==null||v===""?"":(typeof v==="number"?v.toFixed(d??2):String(v));
+function parseScore(s){if(s==null)return null;s=String(s).trim().replace(",",".");if(s==="")return null;const n=Number(s);return isFinite(n)?n:NaN}
+
+/* ---------- STATE ---------- */
+const DEFAULT_CFG={
+  fileName:"Diem_{ky_thi}_{ngay}",
+  title:"KẾT QUẢ KIỂM TRA",
+  school:"",
+  decimals:2,
+  absent:"V",
+  formulas:true,
+  sheets:{tonghop:true,goc:true,pk:true,lop:true,lopRieng:false,kiemtra:true},
+  gocCols:[["stt","STT",1],["khoi","Khối",1],["mon","Môn",1],["phong","Phòng",1],["sbd","SBD",1],["ten","Họ và tên",1],["ngaysinh","Ngày sinh",1],["lop","Lớp",1],["phach","Mã phách",1],["cau","Điểm từng câu",1],["diem","Điểm",1],["trangthai","Trạng thái",1],["ghichu","Ghi chú",1],["nguon","Nguồn (file - trang)",0]],
+  lopCols:[["stt","STT",1],["lop","Lớp",1],["ttlop","TT trong lớp",1],["ten","Họ và tên",1],["ngaysinh","Ngày sinh",1],["sbd","SBD từng môn",1],["diem","Điểm từng môn",1],["ghichu","Ghi chú",1]],
+  lopSort:"ten",
+  onlyScored:false,
+  model:"default",
+  apiKey:""
+};
+let cfg=Object.assign(structuredClone(DEFAULT_CFG),lsGet("cfg",{}));
+cfg.sheets=Object.assign({},DEFAULT_CFG.sheets,cfg.sheets||{});
+let MAP=lsGet("map",null);          // {file, rows:[{sbd,name,dob,lop,mon,room,phach,ord}]}
+let PAGES=lsGet("pages",[]);        // [{key,file,n,status,err,rows,reviewed}]
+let PK=lsGet("pk",[]);              // [{sbd,score,date,note}]
+const PDFS={};                      // file -> pdf doc (chỉ trong phiên)
+let byPhach={}, bySbd={};
+let cur=null, zoom=1;
+function rebuildIndex(){byPhach={};bySbd={};if(!MAP)return;for(const r of MAP.rows){byPhach[r.phach.toUpperCase()]=r;bySbd[r.sbd.toUpperCase()]=r}}
+rebuildIndex();
+const saveMap=()=>lsSet("map",MAP), savePages=()=>lsSet("pages",PAGES), savePk=()=>lsSet("pk",PK), saveCfg=()=>lsSet("cfg",cfg);
+
+/* ---------- ĐỌC FILE ĐẦU PHÁCH ---------- */
+$("#st1").onclick=()=>$("#fMap").click();
+$("#fMap").onchange=async e=>{
+  const f=e.target.files[0]; if(!f)return; e.target.value="";
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:"array",cellDates:true});
+    const rows=[]; let ord=0;
+    for(const sn of wb.SheetNames){
+      const a=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
+      let H=null,room=null;
+      for(const r of a){
+        if(!r)continue;
+        for(const c of r){if(typeof c==="string"){const m=c.match(/ph[oò]ng\s*thi\s*:?\s*([\w.-]+)/i);if(m)room=m[1]}}
+        const n=r.map(norm);
+        const iS=n.indexOf("sbd"), iP=n.findIndex(x=>x.includes("ma phach"));
+        if(iS>=0&&iP>=0){
+          H={sbd:iS,phach:iP,ten:n.findIndex(x=>x==="ho va ten"||x==="ho ten"||x.startsWith("ho va ten")),
+             dob:n.findIndex(x=>x.startsWith("ngay sinh")),lop:n.findIndex(x=>x==="lop"),mon:n.findIndex(x=>x.startsWith("mon")),
+             phong:n.findIndex(x=>x.startsWith("phong")),hdr:r};continue}
+        if(!H)continue;
+        const sbd=r[H.sbd], ph=r[H.phach];
+        if(typeof sbd!=="string"||!sbd.trim()||ph==null||String(ph).trim()==="")continue;
+        let dob="";
+        if(H.dob>=0){const v=r[H.dob];
+          if(v instanceof Date)dob=String(v.getDate()).padStart(2,"0")+"/"+String(v.getMonth()+1).padStart(2,"0")+"/"+v.getFullYear();
+          else if(v!=null&&H.hdr[H.dob+1]==null&&r[H.dob+1]!=null&&r[H.dob+2]!=null)dob=String(v).padStart(2,"0")+"/"+String(r[H.dob+1]).padStart(2,"0")+"/"+r[H.dob+2];
+          else if(v!=null)dob=String(v)}
+        const mon=H.mon>=0?String(r[H.mon]??"").trim():sn;
+        rows.push({sbd:sbd.trim(),name:H.ten>=0?String(r[H.ten]??"").trim():"",dob,lop:H.lop>=0?String(r[H.lop]??"").trim():"",
+          mon,room:H.phong>=0&&r[H.phong]!=null?String(r[H.phong]):(room||""),phach:String(ph).trim(),ord:ord++});
+      }
+    }
+    if(!rows.length){toast("Không tìm thấy bảng có cột SBD và Mã phách trong file này.");return}
+    // bỏ trùng mã phách (giữ dòng đầu)
+    const seen=new Set(), uniq=[];for(const r of rows){const k=r.phach.toUpperCase();if(!seen.has(k)){seen.add(k);uniq.push(r)}}
+    MAP={file:f.name,rows:uniq}; saveMap(); rebuildIndex(); renderAll();
+    const mons=[...new Set(uniq.map(r=>r.mon))];
+    toast(`Đã đọc ${uniq.length} mã phách (${mons.join(", ")}) từ ${f.name}`);
+  }catch(err){console.error(err);toast("Không đọc được file Excel: "+err.message)}
+};
+
+/* ---------- MỞ PDF ---------- */
+$("#st2").onclick=$("#bAddPdf").onclick=()=>$("#fPdf").click();
+$("#fPdf").onchange=async e=>{
+  const files=[...e.target.files]; e.target.value="";
+  for(const f of files){
+    try{
+      const doc=await pdfjsLib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+      PDFS[f.name]=doc;
+      for(let n=1;n<=doc.numPages;n++){const key=f.name+"#"+n;if(!PAGES.find(p=>p.key===key))PAGES.push({key,file:f.name,n,status:"wait",rows:[],reviewed:false})}
+      toast(`Đã mở ${f.name}: ${doc.numPages} trang`);
+    }catch(err){console.error(err);toast("Không mở được "+f.name+": "+err.message)}
+  }
+  savePages(); renderAll(); if(!cur&&PAGES.length)selectPage(PAGES[0].key);
+};
+
+/* ---------- KIỂM TRA DÒNG ---------- */
+function rowIssues(r,dupSet){
+  const out=[]; const ph=(r.phach||"").toUpperCase();
+  if(!ph)out.push(["bad","Thiếu mã phách"]);
+  else if(MAP&&!byPhach[ph])out.push(["bad","Mã phách không có trong file đầu phách"]);
+  if(dupSet&&dupSet.has(ph))out.push(["bad","Mã phách bị trùng ở trang khác"]);
+  const t=r.total;
+  if(t==null)out.push(["bad","Thiếu điểm"]);
+  else if(t!==-1){
+    if(isNaN(t)||t<0||t>10)out.push(["bad","Điểm ngoài khoảng 0–10"]);
+    else if(Math.abs(t*4-Math.round(t*4))>1e-9)out.push(["warn","Điểm không chia hết cho 0,25"]);
+    const qs=(r.q||[]).filter(x=>x!=null&&!isNaN(x));
+    if(qs.length){const s=qs.reduce((a,b)=>a+b,0);if(Math.abs(s-t)>1e-9)out.push(["warn",`Tổng các câu = ${fmt(s)} khác điểm ${fmt(t)}`])}
+    if(r.wordsVal!=null&&!isNaN(r.wordsVal)&&Math.abs(r.wordsVal-t)>1e-9)out.push(["warn",`Điểm bằng chữ (${r.words||fmt(r.wordsVal)}) khác điểm số`]);
+  }
+  if(r.note&&!(t===-1&&/v[ắa]ng|âm một|-1/i.test(r.note)))out.push(["warn",r.note]);
+  return out;
+}
+function dupPhach(){const c={};for(const p of PAGES)for(const r of p.rows){const k=(r.phach||"").toUpperCase();if(k)c[k]=(c[k]||0)+1}return new Set(Object.keys(c).filter(k=>c[k]>1))}
+function results(){ // phach -> {row,page}
+  const m={};for(const p of PAGES)for(const r of p.rows){const k=(r.phach||"").toUpperCase();if(k&&!m[k])m[k]={r,p}}return m}
+
+/* ---------- DANH SÁCH TRANG ---------- */
+function pageInfo(p,dup){
+  if(p.status==="run")return["run","Đang đọc…"];
+  if(p.status==="err")return["bad","Lỗi"];
+  if(p.status==="wait"&&!p.rows.length)return["wait","Chưa đọc"];
+  const nIss=p.rows.filter(r=>!r.checked&&rowIssues(r,dup).length).length;
+  if(p.reviewed&&!nIss)return["ok","Đã soát"];
+  if(nIss)return["warn",nIss+" cần xem"];
+  return["ok","Đã đọc"];
+}
+function bagOf(p){const c={};for(const r of p.rows){const m=(r.phach||"").match(/^([A-Za-z]+\d+)/);if(m)c[m[1].toUpperCase()]=(c[m[1].toUpperCase()]||0)+1}const k=Object.keys(c).sort((a,b)=>c[b]-c[a]);return k[0]||""}
+function renderPageList(){
+  const el=$("#pageList");
+  if(!PAGES.length){el.innerHTML='<div class="empty">Chưa có trang nào.<br>Bấm <b>+ PDF</b> để mở file phiếu chấm scan (mỗi trang là một túi bài).</div>';return}
+  const dup=dupPhach();
+  el.innerHTML=PAGES.map(p=>{const [c,t]=pageInfo(p,dup);const bag=bagOf(p);const miss=!PDFS[p.file]?" · cần mở lại PDF":"";
+    return `<div class="pg${cur===p.key?" sel":""}" data-k="${esc(p.key)}" tabindex="0"><span class="t">Trang ${p.n}${bag?" · "+esc(bag):""}</span><span class="chip ${c}">${t}</span><span class="f">${esc(p.file)} · ${p.rows.length} dòng${miss}</span></div>`}).join("");
+  el.querySelectorAll(".pg").forEach(d=>{d.onclick=()=>selectPage(d.dataset.k);d.onkeydown=e=>{if(e.key==="Enter")selectPage(d.dataset.k)}});
+}
+function selectPage(k){cur=k;renderPageList();renderCanvas();renderTable()}
+function curPage(){return PAGES.find(p=>p.key===cur)}
+function movePage(d){if(!PAGES.length)return;let i=PAGES.findIndex(p=>p.key===cur);i=Math.max(0,Math.min(PAGES.length-1,i+d));selectPage(PAGES[i].key);document.querySelector(".pg.sel")?.scrollIntoView({block:"nearest"})}
+$("#pPrev").onclick=()=>movePage(-1);$("#pNext").onclick=()=>movePage(1);
+document.addEventListener("keydown",e=>{
+  if($("#v-phieu").hidden)return;
+  if(e.target.closest("input,select,textarea"))return;
+  if(e.key==="ArrowRight"){movePage(1);e.preventDefault()}
+  if(e.key==="ArrowLeft"){movePage(-1);e.preventDefault()}
+});
+
+/* ---------- ẢNH TRANG ---------- */
+let renderTok=0;
+async function renderCanvas(){
+  const p=curPage(),cv=$("#cv"),em=$("#cEmpty");
+  $("#pgTitle").textContent=p?`${p.file} · trang ${p.n}`:"Ảnh phiếu";
+  $("#zLbl").textContent=Math.round(zoom*100)+"%";
+  if(!p||!PDFS[p.file]){cv.hidden=true;em.hidden=false;em.innerHTML=p?`Ảnh trang này chưa có trong phiên làm việc.<br>Bấm <b>+ PDF</b> và mở lại file <b>${esc(p.file)}</b> để xem ảnh (điểm đã đọc vẫn được giữ).`:"Ảnh trang phiếu sẽ hiện ở đây.<br>Dùng phím <span class=\"kbd\">←</span> <span class=\"kbd\">→</span> để chuyển trang.";return}
+  const tok=++renderTok;const page=await PDFS[p.file].getPage(p.n);if(tok!==renderTok)return;
+  const box=$("#cbox");const base=page.getViewport({scale:1});
+  const fit=(box.clientWidth-16)/base.width;const vp=page.getViewport({scale:fit*zoom*(window.devicePixelRatio||1)});
+  cv.width=vp.width;cv.height=vp.height;cv.style.width=(vp.width/(window.devicePixelRatio||1))+"px";
+  await page.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
+  if(tok!==renderTok)return; em.hidden=true;cv.hidden=false;
+}
+$("#zIn").onclick=()=>{zoom=Math.min(4,zoom*1.25);renderCanvas()};
+$("#zOut").onclick=()=>{zoom=Math.max(.5,zoom/1.25);renderCanvas()};
+window.addEventListener("resize",()=>{clearTimeout(renderCanvas._t);renderCanvas._t=setTimeout(renderCanvas,200)});
+
+/* ---------- BẢNG ĐIỂM CỦA TRANG ---------- */
+function nQ(p){let n=0;for(const r of p.rows)(r.q||[]).forEach((v,i)=>{if(v!=null)n=Math.max(n,i+1)});return Math.max(n,0)}
+function renderTable(){
+  const p=curPage(),w=$("#tblWrap"),foot=$("#pgFoot");
+  $("#bReread").disabled=!p||!PDFS[p?.file]||!AI;
+  if(!p){w.innerHTML='<div class="empty">Chọn một trang ở cột bên trái.</div>';foot.hidden=true;$("#tblTitle").textContent="Điểm đọc được";return}
+  const bag=bagOf(p);$("#tblTitle").textContent=`Điểm đọc được${bag?" · túi "+bag:""}`;
+  if(p.status==="run"){w.innerHTML='<div class="empty">Claude đang đọc trang này…</div>';foot.hidden=true;return}
+  if(p.status==="err"&&!p.rows.length){w.innerHTML=`<div class="empty">Đọc không thành công: ${esc(p.err||"")}<br>Bấm <b>Đọc lại trang này</b>, hoặc <b>+ Thêm dòng</b> để nhập tay.</div>`;foot.hidden=false;$("#pgMiss").textContent="";return}
+  if(!p.rows.length){w.innerHTML=`<div class="empty">Trang này chưa được đọc.<br>${AI?"Bấm <b>Đọc lại trang này</b> hoặc <b>Đọc tự động</b> ở trên.":"Bấm <b>+ Thêm dòng</b> để nhập tay."}</div>`;foot.hidden=false;$("#pgMiss").textContent="";return}
+  const q=Math.max(nQ(p),1),dup=dupPhach();
+  let h=`<table><thead><tr><th class="num">TT</th><th>Mã phách</th><th>Học sinh</th>${Array.from({length:q},(_,i)=>`<th class="num">C${i+1}</th>`).join("")}<th class="num">Điểm</th><th></th></tr></thead><tbody>`;
+  p.rows.forEach((r,i)=>{
+    const st=byPhach[(r.phach||"").toUpperCase()];const iss=rowIssues(r,dup);
+    const cls=r.checked?"checked":iss.some(x=>x[0]==="bad")?"bad":iss.length?"flag":"";
+    h+=`<tr class="${cls}" data-i="${i}"><td class="num mono">${r.tt??i+1}</td>
+      <td><input class="ph" data-f="phach" value="${esc(r.phach||"")}" aria-label="Mã phách"></td>
+      <td class="who">${st?`<div class="nm">${esc(st.name)}</div><div class="sub mono">${esc(st.sbd)} · ${esc(st.lop)}</div>`:'<div class="sub">—</div>'}
+        ${iss.map(x=>`<div class="issue ${x[0]==="bad"?"bad":""}">${esc(x[1])}</div>`).join("")}</td>
+      ${Array.from({length:q},(_,k)=>`<td class="num"><input class="sc" data-f="q${k}" value="${fmt(r.q?.[k],2)}" inputmode="decimal" aria-label="Câu ${k+1}"></td>`).join("")}
+      <td class="num"><input class="sc tot" data-f="total" value="${r.total===-1?"V":fmt(r.total,2)}" inputmode="decimal" aria-label="Điểm"></td>
+      <td style="white-space:nowrap">${iss.length?`<label class="help" title="Đánh dấu đã đối chiếu với bài"><input type="checkbox" data-f="checked" ${r.checked?"checked":""}> ổn</label>`:""}
+        <button class="iconbtn" data-del="${i}" type="button" aria-label="Xoá dòng" title="Xoá dòng">×</button></td></tr>`;
+  });
+  h+="</tbody></table>";w.innerHTML=h;foot.hidden=false;
+  // mã còn thiếu trong túi
+  let miss=[];if(MAP&&bag){const have=new Set(p.rows.map(r=>(r.phach||"").toUpperCase()));miss=MAP.rows.filter(r=>r.phach.toUpperCase().startsWith(bag+".")&&!have.has(r.phach.toUpperCase())).map(r=>r.phach)}
+  $("#pgMiss").textContent=miss.length?`Túi ${bag} còn thiếu ${miss.length} mã: ${miss.slice(0,8).join(", ")}${miss.length>8?"…":""}`:"";
+  $("#bReviewed").textContent=p.reviewed?"Đã soát ✓ (bấm để bỏ)":"Đã soát xong trang ✓";
+  w.querySelectorAll("input").forEach(inp=>{
+    inp.onchange=()=>{const tr=inp.closest("tr");const r=p.rows[+tr.dataset.i];const f=inp.dataset.f;
+      if(f==="phach")r.phach=inp.value.trim().toUpperCase();
+      else if(f==="checked")r.checked=inp.checked;
+      else{const v=inp.value.trim();let n=/^v(ắng|ang)?$/i.test(v)||v==="-1"?-1:parseScore(v);
+        if(f==="total")r.total=n;else{r.q=r.q||[];r.q[+f.slice(1)]=n===-1?null:n}}
+      savePages();const pos=inp.dataset.f+"|"+tr.dataset.i;renderTable();renderPageList();
+      const nx=w.querySelector(`tr[data-i="${tr.dataset.i}"] input[data-f="${inp.dataset.f}"]`);if(nx&&document.activeElement===document.body)nx.focus()};
+    inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();const tr=inp.closest("tr");inp.dispatchEvent(new Event("change"));
+      setTimeout(()=>{const nx=w.querySelector(`tr[data-i="${+tr.dataset.i+1}"] input[data-f="${inp.dataset.f}"]`);if(nx){nx.focus();nx.select?.()}},0)}};
+  });
+  w.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{p.rows.splice(+b.dataset.del,1);savePages();renderTable();renderPageList()});
+}
+$("#bAddRow").onclick=()=>{const p=curPage();if(!p)return;const last=p.rows[p.rows.length-1];let ph="";
+  if(last){const m=(last.phach||"").match(/^(.*\.)(\d+)$/);if(m)ph=m[1]+String(+m[2]+1).padStart(m[2].length,"0")}
+  p.rows.push({tt:(last?.tt||p.rows.length)+1,phach:ph,q:[],total:null});if(p.status!=="done")p.status="done";savePages();renderTable();renderPageList();
+  const inps=$("#tblWrap").querySelectorAll('input[data-f="total"]');inps[inps.length-1]?.focus()};
+$("#bReviewed").onclick=()=>{const p=curPage();if(!p)return;p.reviewed=!p.reviewed;savePages();renderPageList();renderTable();if(p.reviewed)movePage(1)};
+
+/* ---------- ĐỌC TỰ ĐỘNG BẰNG CLAUDE ---------- */
+let AI=null, SAMPLE=null, AIimg=0, ctl=null, running=false;
+const MODELS={default:"claude-sonnet-5-5",complex:"claude-opus-5-5",quick:"claude-haiku-5-5"};
+(async()=>{
+  try{
+    if(window.claude?.use){
+      const s=await claude.use("sample");
+      if(s){const lim=await s.limits().catch(()=>null);if(lim?.images?.maxCount){SAMPLE=s;AIimg=lim.images.maxCount}}
+    }
+  }catch(e){SAMPLE=null}
+  setAiMode();renderAll();
+})();
+function setAiMode(){
+  if(SAMPLE){AI="claude";AIimg=Math.max(AIimg,1)}
+  else if(cfg.apiKey){AI="api";AIimg=2}
+  else AI=null;
+  const n=$("#aiNote");n.hidden=!!AI;
+  if(!AI)n.innerHTML='Chưa bật <b>đọc tự động</b>. Vào tab <b>Cấu hình xuất Excel</b> → nhập <b>API key của Claude</b> (lấy tại console.anthropic.com) để app tự đọc điểm từ ảnh phiếu. Không có key thì vẫn xem ảnh phiếu, nhập tay và xuất Excel bình thường.';
+}
+function blobToB64(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(b)})}
+function parseJsonLoose(t){
+  try{return JSON.parse(t)}catch(e){}
+  const m=t.match(/```(?:json)?\s*([\s\S]*?)```/);if(m){try{return JSON.parse(m[1])}catch(e){}}
+  const i=t.indexOf("{"),j=t.lastIndexOf("}");if(i>=0&&j>i){try{return JSON.parse(t.slice(i,j+1))}catch(e){}}
+  throw{code:"invalid_json",message:"Không đọc được JSON",text:t};
+}
+async function aiJson(prompt,imgs,signal){
+  if(AI==="claude")return SAMPLE.json(prompt,{images:imgs,signal,modelTier:cfg.model||"default"});
+  const b64=await Promise.all(imgs.map(blobToB64));
+  let r;
+  try{
+    r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal,
+      headers:{"content-type":"application/json","x-api-key":cfg.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:MODELS[cfg.model]||MODELS.default,max_tokens:8000,
+        messages:[{role:"user",content:[...b64.map(d=>({type:"image",source:{type:"base64",media_type:"image/jpeg",data:d}})),{type:"text",text:prompt+"\n\nChỉ trả lời bằng JSON, không viết gì thêm."}]}]})});
+  }catch(e){if(e?.name==="AbortError")throw{code:"cancelled"};throw{code:"network",message:String(e?.message||e)}}
+  if(!r.ok){const t=await r.text().catch(()=>"");
+    throw{code:r.status===401||r.status===403?"bad_key":(r.status===429||r.status===529)?"rate_limited":r.status===404?"bad_model":"upstream_error",message:t.slice(0,300)}}
+  const j=await r.json();
+  return parseJsonLoose((j.content||[]).filter(c=>c.type==="text").map(c=>c.text).join(""));
+}
+
+async function pageImages(p){
+  const page=await PDFS[p.file].getPage(p.n);const base=page.getViewport({scale:1});
+  const vp=page.getViewport({scale:1700/base.width});
+  const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;
+  await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+  const crop=(y0,y1)=>new Promise(res=>{const h=Math.round(c.height*(y1-y0));const k=document.createElement("canvas");k.width=c.width;k.height=h;
+    k.getContext("2d").drawImage(c,0,Math.round(c.height*y0),c.width,h,0,0,c.width,h);k.toBlob(b=>res(b),"image/jpeg",.9)});
+  if(AIimg>=2)return[await crop(0,.56),await crop(.44,1)];
+  return[await crop(0,1)];
+}
+function buildPrompt(two){
+  const sample=MAP?MAP.rows.slice(0,3).map(r=>r.phach).join(", "):"V01.01";
+  return `Bạn là thư ký hội đồng chấm thi. ${two?"Hai ảnh là nửa trên và nửa dưới (có chồng lấn vài dòng) của CÙNG một trang":"Ảnh là một trang"} "phiếu chấm điểm" viết tay của một túi bài thi.
+Trang có bảng: TT | Mã phách | Điểm từng câu (cột 1..5) | Điểm (bằng số) | Điểm (bằng chữ) | Nhận xét.
+
+Hãy đọc TẤT CẢ các dòng có ghi mã phách hoặc điểm, theo thứ tự TT. Quy tắc:
+- Mã phách dạng chữ + số túi + "." + số thứ tự, ví dụ ${sample}. Thường chỉ dòng đầu ghi đủ (vd "V17.01" hoặc "V1701"), các dòng sau chỉ ghi "02", "03"... → hãy viết đầy đủ theo dạng "V17.02". Nếu ghi liền "V1701" thì tách thành "V17.01".
+- Điểm theo bước 0,25, từ 0 đến 10. Giám khảo hay viết tắt bỏ dấu phẩy: "35" = 3.5, "375" = 3.75, "325" = 3.25, "40" = 4.0, "80" = 8.0, "825" = 8.25, "15" (ở cột câu) = 1.5. Dấu phẩy là dấu thập phân.
+- "-1" hoặc "Âm một" = học sinh vắng: ghi diem = -1, cau để null.
+- Dòng có số bị gạch sửa: lấy giá trị sửa cuối cùng và ghi rõ vào "ghi_chu". Dòng gạch chéo bỏ trống mà vẫn có mã phách: diem = null, ghi_chu nêu lý do.
+- "diem_chu" là chữ viết tay ở cột điểm bằng chữ; "diem_chu_so" là giá trị số của chữ đó (vd "Tám rưỡi" = 8.5, "Bảy hai lăm" = 7.25, "Tám bảy lăm" = 7.75 nếu viết "Bảy bảy lăm", "Chín chẵn/tròn" = 9.0).
+- Chỉ ghi "ghi_chu" khi có điều đáng ngờ (chữ khó đọc, có sửa, tổng các câu không bằng điểm...). Không bịa dòng trống.
+- Bỏ qua các dòng 25–30 nếu trống hoặc bị gạch chéo.
+
+Chỉ trả về JSON đúng dạng:
+{"mon":"Văn","khoi":"10","rows":[{"tt":1,"ma_phach":"V17.01","cau":[3.75,4.5,null,null,null],"diem":8.25,"diem_chu":"Tám hai lăm","diem_chu_so":8.25,"ghi_chu":""}]}`;
+}
+async function readPage(p){
+  p.status="run";p.err="";renderPageList();if(cur===p.key)renderTable();
+  try{
+    const imgs=await pageImages(p);
+    ctl=new AbortController();
+    const res=await aiJson(buildPrompt(imgs.length>1),imgs,ctl.signal);
+    const rows=(res&&Array.isArray(res.rows)?res.rows:[]).map((r,i)=>({
+      tt:Number(r.tt)||i+1,
+      phach:String(r.ma_phach||"").trim().toUpperCase().replace(/^([A-Z]+)(\d{2})(\d{2})$/,"$1$2.$3"),
+      q:Array.isArray(r.cau)?r.cau.map(v=>v==null||v===""?null:Number(v)):[],
+      total:r.diem==null||r.diem===""?null:Number(r.diem),
+      words:r.diem_chu||"",wordsVal:r.diem_chu_so==null||r.diem_chu_so===""?null:Number(r.diem_chu_so),
+      note:String(r.ghi_chu||"").trim()}))
+      .filter(r=>r.phach||r.total!=null);
+    rows.forEach(r=>{if(r.total===-1)r.q=[]});
+    p.rows=rows;p.status="done";p.reviewed=false;
+  }catch(e){
+    p.status="err";p.err=e?.code==="cancelled"?"Đã dừng":errText(e);
+    if(e?.code==="cancelled")p.status=p.rows.length?"done":"wait";
+    if(["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed","images_unavailable"].includes(e?.code)){SAMPLE=null;setAiMode();throw e}
+    if(["bad_key","bad_model","network"].includes(e?.code))throw e;
+    if(e?.code==="rate_limited")throw e;
+    if(e?.code==="cancelled")throw e;
+  }finally{savePages();renderPageList();if(cur===p.key)renderTable();updateSteps()}
+}
+function errText(e){return({rate_limited:"Claude đang quá tải hoặc bạn đã hết lượt dùng, thử lại sau ít phút.",invalid_json:"Kết quả trả về không đúng định dạng, bấm Đọc lại.",refused:"Claude không đọc trang này.",image_rejected:"Ảnh trang không hợp lệ.",session_expired:"Phiên đăng nhập đã hết hạn, hãy đăng nhập lại.",bad_key:"API key không đúng hoặc đã hết hạn: kiểm tra lại trong tab Cấu hình.",bad_model:"Không tìm thấy model: đổi Mức độ đọc trong tab Cấu hình.",network:"Không kết nối được tới Claude: kiểm tra mạng Internet.",upstream_error:"Lỗi kết nối, bấm Đọc lại."})[e?.code]||("Lỗi: "+(e?.message||e))}
+$("#bRun").onclick=async()=>{
+  if(!AI){toast("Đọc tự động chưa dùng được trong phiên này.");return}
+  const todo=PAGES.filter(p=>PDFS[p.file]&&(p.status==="wait"||p.status==="err"));
+  if(!todo.length){toast(PAGES.length?"Không còn trang nào chưa đọc (hoặc cần mở lại PDF).":"Hãy mở file PDF phiếu chấm trước.");return}
+  if(!MAP)toast("Chưa có file đầu phách: vẫn đọc được điểm, nhưng chưa ghép được SBD/họ tên.");
+  running=true;$("#bRun").disabled=true;$("#bStop").hidden=false;let done=0;
+  for(const p of todo){
+    if(!running)break;
+    $("#runMsg").textContent=`Đang đọc ${p.file} · trang ${p.n} (${done+1}/${todo.length})…`;
+    $("#prog").style.width=(done/todo.length*100)+"%";
+    if(!cur)selectPage(p.key);
+    try{await readPage(p)}catch(e){if(e?.code==="cancelled"){break}toast(errText(e));break}
+    done++;
+  }
+  $("#prog").style.width=(done/todo.length*100)+"%";
+  running=false;$("#bRun").disabled=false;$("#bStop").hidden=true;
+  const dup=dupPhach();const iss=PAGES.reduce((a,p)=>a+p.rows.filter(r=>!r.checked&&rowIssues(r,dup).length).length,0);
+  $("#runMsg").textContent=`Đã đọc ${done}/${todo.length} trang. ${iss?iss+" dòng cần xem lại (tô vàng/đỏ).":"Không có dòng nào đáng ngờ."}`;
+  renderAll();
+};
+$("#bStop").onclick=()=>{running=false;ctl?.abort()};
+$("#bReread").onclick=async()=>{const p=curPage();if(!p||!AI)return;$("#bReread").disabled=true;try{await readPage(p)}catch(e){if(e?.code!=="cancelled")toast(errText(e))}renderTable()};
+$("#st3").onclick=()=>{showTab("phieu");$("#bRun").focus()};
+
+/* ---------- BẢNG TỔNG HỢP ---------- */
+function monParts(mon){const m=String(mon).match(/^(.*?)\s*(\d+)\s*$/);return m?{base:m[1].trim(),khoi:m[2]}:{base:String(mon).trim(),khoi:""}}
+function buildRecords(){
+  if(!MAP)return[];
+  const res=results(),dup=dupPhach();
+  return MAP.rows.map(m=>{
+    const x=res[m.phach.toUpperCase()];let st="Chưa có điểm",score=null,q=[],note="",src="";
+    if(x){const r=x.r;q=r.q||[];src=`${x.p.file} - tr.${x.p.n}`;
+      const iss=rowIssues(r,dup).map(i=>i[1]);note=iss.join("; ");
+      if(r.total==null)st="Thiếu điểm";else if(r.total===-1){st="Vắng";score="V";note=iss.filter(t=>!/vắng/i.test(t)).join("; ")}
+      else{score=r.total;st=(iss.length&&!r.checked)?"Cần kiểm tra":"Có điểm"}}
+    const mp=monParts(m.mon);
+    return Object.assign({},m,{mp,score,q,st,note,src});
+  });
+}
+function pkOf(sbd){return PK.find(x=>x.sbd.toUpperCase()===String(sbd).toUpperCase())}
+
+/* ---------- DANH SÁCH HỌC SINH ---------- */
+function renderDs(){
+  const recs=buildRecords();
+  const mons=[...new Set(recs.map(r=>r.mon))],lops=[...new Set(recs.map(r=>r.lop))].sort(coll.compare);
+  const fm=$("#fMon"),fl=$("#fLop"),vm=fm.value,vl=fl.value;
+  fm.innerHTML='<option value="">Mọi môn</option>'+mons.map(m=>`<option${m===vm?" selected":""}>${esc(m)}</option>`).join("");
+  fl.innerHTML='<option value="">Mọi lớp</option>'+lops.map(m=>`<option${m===vl?" selected":""}>${esc(m)}</option>`).join("");
+  // thống kê
+  const by={};for(const r of recs){const b=by[r.mon]||(by[r.mon]={n:0,c:0,v:0,k:0,s:0,cnt:0});b.n++;if(typeof r.score==="number"){b.c++;b.s+=r.score}if(r.st==="Vắng")b.v++;if(r.st==="Cần kiểm tra"||r.st==="Thiếu điểm")b.k++}
+  $("#stats").innerHTML=MAP?Object.entries(by).map(([m,b])=>`<div class="stat"><div class="k">${esc(m)}</div><div class="v">${b.c}/${b.n}</div><div class="s">${b.c?"TB "+(b.s/b.c).toFixed(2)+" · ":""}${b.v} vắng · ${b.k} cần xem</div></div>`).join(""):'<div class="notice">Mở file đầu phách (bước 1) để xem danh sách học sinh.</div>';
+  const q=norm($("#q").value),st=$("#fSt").value;
+  const list=recs.filter(r=>(!vm||r.mon===vm)&&(!vl||r.lop===vl)&&(!st||r.st===st)&&(!q||norm(r.sbd+" "+r.name+" "+r.phach).includes(q)));
+  $("#dsCount").textContent=MAP?`${list.length} bài thi`:"";
+  const show=list.slice(0,800);
+  $("#dsWrap").innerHTML=!MAP?'<div class="empty">Chưa có dữ liệu.</div>':`<table><thead><tr><th>SBD</th><th>Họ và tên</th><th>Ngày sinh</th><th>Lớp</th><th>Môn</th><th class="num">Phòng</th><th>Mã phách</th><th class="num">Điểm</th><th class="num">Phúc khảo</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>${
+    show.map(r=>{const pk=pkOf(r.sbd);const c={"Có điểm":"ok","Cần kiểm tra":"warn","Vắng":"wait","Thiếu điểm":"bad","Chưa có điểm":"wait"}[r.st];
+      return `<tr><td class="mono">${esc(r.sbd)}</td><td>${esc(r.name)}</td><td class="mono">${esc(r.dob)}</td><td>${esc(r.lop)}</td><td>${esc(r.mon)}</td><td class="num mono">${esc(r.room)}</td><td class="mono"><a href="#" data-go="${esc(r.phach)}">${esc(r.phach)}</a></td><td class="num mono"><b>${typeof r.score==="number"?fmt(r.score,cfg.decimals):esc(r.score??"")}</b></td><td class="num mono">${pk?fmt(pk.score,cfg.decimals):""}</td><td><span class="chip ${c}">${r.st}</span></td><td class="help">${esc(r.note)}</td></tr>`}).join("")
+  }</tbody></table>${list.length>800?`<div class="empty">Đang hiện 800/${list.length} dòng. Dùng ô tìm kiếm hoặc bộ lọc để thu hẹp.</div>`:""}`;
+  $("#dsWrap").querySelectorAll("[data-go]").forEach(a=>a.onclick=e=>{e.preventDefault();goPhach(a.dataset.go)});
+}
+function goPhach(ph){const P=ph.toUpperCase();for(const p of PAGES){const i=p.rows.findIndex(r=>(r.phach||"").toUpperCase()===P);if(i>=0){showTab("phieu");selectPage(p.key);setTimeout(()=>{const tr=$(`#tblWrap tr[data-i="${i}"]`);tr?.scrollIntoView({block:"center"});tr?.querySelector('input[data-f="total"]')?.focus()},50);return}}toast("Mã phách này chưa có trong các trang đã đọc.")}
+["#q","#fMon","#fLop","#fSt"].forEach(s=>$(s).addEventListener("input",renderDs));
+
+/* ---------- PHÚC KHẢO ---------- */
+function pkLookup(){const s=$("#pkSbd").value.trim().toUpperCase();const m=bySbd[s];
+  if(!s){$("#pkWho").textContent="Nhập SBD để xem học sinh và điểm gốc";return null}
+  if(!m){$("#pkWho").textContent="Không thấy SBD này trong file đầu phách";return null}
+  const rec=buildRecords().find(r=>r.sbd.toUpperCase()===s);
+  $("#pkWho").innerHTML=`<b>${esc(m.name)}</b> · ${esc(m.lop)} · ${esc(m.mon)} · điểm gốc <b class="mono">${rec&&rec.score!=null?esc(typeof rec.score==="number"?fmt(rec.score,cfg.decimals):rec.score):"chưa có"}</b>`;return m}
+$("#pkSbd").addEventListener("input",pkLookup);
+$("#pkForm").onsubmit=e=>{e.preventDefault();const m=pkLookup();if(!m){toast("Kiểm tra lại SBD.");return}
+  const v=parseScore($("#pkScore").value);if(v==null||isNaN(v)||v<0||v>10){toast("Điểm phúc khảo phải từ 0 đến 10.");return}
+  const today=new Date();const ex=pkOf(m.sbd);const item={sbd:m.sbd,score:v,date:today.toLocaleDateString("vi-VN"),note:$("#pkNote").value.trim()};
+  if(ex)Object.assign(ex,item);else PK.push(item);savePk();$("#pkScore").value="";$("#pkNote").value="";$("#pkSbd").value="";pkLookup();renderPk();toast("Đã lưu phúc khảo cho "+m.sbd);$("#pkSbd").focus()};
+function renderPk(){
+  $("#cPk").textContent=PK.length;
+  const recs=Object.fromEntries(buildRecords().map(r=>[r.sbd.toUpperCase(),r]));
+  $("#pkWrap").innerHTML=PK.length?`<table><thead><tr><th>SBD</th><th>Họ và tên</th><th>Lớp</th><th>Môn</th><th class="num">Điểm gốc</th><th class="num">Sau phúc khảo</th><th class="num">Chênh lệch</th><th>Ngày</th><th>Ghi chú</th><th></th></tr></thead><tbody>${
+    PK.map((x,i)=>{const r=recs[x.sbd.toUpperCase()]||{};const g=typeof r.score==="number"?r.score:null;
+      return `<tr><td class="mono">${esc(x.sbd)}</td><td>${esc(r.name)}</td><td>${esc(r.lop)}</td><td>${esc(r.mon)}</td><td class="num mono">${g!=null?fmt(g,cfg.decimals):esc(r.score??"")}</td><td class="num mono"><b>${fmt(x.score,cfg.decimals)}</b></td><td class="num mono">${g!=null?(x.score-g>0?"+":"")+fmt(x.score-g,2):""}</td><td>${esc(x.date)}</td><td>${esc(x.note)}</td><td><button class="iconbtn" data-pkdel="${i}" type="button" aria-label="Xoá">×</button></td></tr>`}).join("")}</tbody></table>`:'<div class="empty">Chưa có học sinh nào phúc khảo.</div>';
+  $("#pkWrap").querySelectorAll("[data-pkdel]").forEach(b=>b.onclick=()=>{PK.splice(+b.dataset.pkdel,1);savePk();renderPk()});
+}
+
+/* ---------- CẤU HÌNH ---------- */
+const COLNOTE={cau:"tự tạo Câu 1, Câu 2… theo số câu có trên phiếu",sbd:"một cột SBD cho mỗi môn",diem:"một cột điểm cho mỗi môn"};
+function colEditor(listKey,title){
+  return `<div class="panel"><h2>${title}</h2><div class="cols">${cfg[listKey].map((c,i)=>`<div class="colrow"><input type="checkbox" data-cl="${listKey}" data-i="${i}" ${c[2]?"checked":""} aria-label="Hiện cột"><span><input type="text" data-cn="${listKey}" data-i="${i}" value="${esc(c[1])}" aria-label="Tên cột" style="width:100%">${COLNOTE[c[0]]?`<span class="key">${COLNOTE[c[0]]}</span>`:""}</span><button class="iconbtn" data-up="${listKey}" data-i="${i}" type="button" aria-label="Lên">↑</button><button class="iconbtn" data-dn="${listKey}" data-i="${i}" type="button" aria-label="Xuống">↓</button></div>`).join("")}</div></div>`}
+function renderCfg(){
+  const s=cfg.sheets;
+  $("#cfgBox").innerHTML=`
+  <div class="panel"><h2>Chung</h2>
+    <div class="fld"><label for="cFile">Tên file (dùng {ky_thi}, {ngay})</label><input id="cFile" value="${esc(cfg.fileName)}"></div>
+    <div class="fld"><label for="cTitle">Tiêu đề kỳ thi (in ở đầu sheet Tổng hợp, và thay cho {ky_thi})</label><input id="cTitle" value="${esc(cfg.title)}"></div>
+    <div class="fld"><label for="cSchool">Tên trường</label><input id="cSchool" value="${esc(cfg.school)}" placeholder="vd Trường THPT …"></div>
+    <div class="fld"><label for="cDec">Định dạng điểm</label><select id="cDec"><option value="2"${cfg.decimals==2?" selected":""}>2 chữ số thập phân (5.00, 7.25)</option><option value="1"${cfg.decimals==1?" selected":""}>1 chữ số (5.0) – điểm lẻ 0,25 vẫn giữ đủ</option></select></div>
+    <div class="fld"><label for="cAbs">Ghi học sinh vắng là</label><select id="cAbs">${["V","Vắng","-1","0"].map(v=>`<option${cfg.absent===v?" selected":""}>${v}</option>`).join("")}</select></div>
+    <label class="check"><input type="checkbox" id="cFormula" ${cfg.formulas?"checked":""}> Dùng công thức liên kết (sửa ở sheet Phúc khảo → sheet Theo lớp tự cập nhật)</label>
+    <div class="fld"><label for="cKey">API key của Claude (để đọc tự động)</label><input id="cKey" type="password" autocomplete="off" placeholder="sk-ant-…" value="${esc(cfg.apiKey||"")}"><span class="help">${SAMPLE?"Đang mở trên Claude nên không cần key.":"Lấy key tại console.anthropic.com → API Keys. Key chỉ lưu trên máy này; ảnh phiếu được gửi tới Claude để đọc."}</span></div>
+    <div class="fld"><label for="cModel">Đọc tự động: mức độ</label><select id="cModel"><option value="default"${cfg.model==="default"?" selected":""}>Cân bằng (khuyên dùng)</option><option value="complex"${cfg.model==="complex"?" selected":""}>Chính xác nhất (chậm hơn)</option><option value="quick"${cfg.model==="quick"?" selected":""}>Nhanh (dễ đọc sai chữ viết tay)</option></select></div>
+  </div>
+  <div class="panel"><h2>Các sheet trong file</h2>
+    <label class="check"><input type="checkbox" data-sh="tonghop" ${s.tonghop?"checked":""}> Tổng hợp (thống kê theo môn)</label>
+    <label class="check"><input type="checkbox" data-sh="goc" ${s.goc?"checked":""}> Điểm gốc – theo danh sách phòng thi</label>
+    <label class="check"><input type="checkbox" data-sh="pk" ${s.pk?"checked":""}> Phúc khảo</label>
+    <label class="check"><input type="checkbox" data-sh="lop" ${s.lop?"checked":""}> Theo lớp – một sheet chung</label>
+    <label class="check"><input type="checkbox" data-sh="lopRieng" ${s.lopRieng?"checked":""}> Theo lớp – mỗi lớp một sheet riêng</label>
+    <label class="check"><input type="checkbox" data-sh="kiemtra" ${s.kiemtra?"checked":""}> Cần kiểm tra</label>
+    <div class="fld"><label for="cSort">Sắp xếp danh sách theo lớp</label><select id="cSort"><option value="ten"${cfg.lopSort==="ten"?" selected":""}>Theo tên A–Z (kiểu tiếng Việt)</option><option value="sbd"${cfg.lopSort==="sbd"?" selected":""}>Theo SBD</option><option value="file"${cfg.lopSort==="file"?" selected":""}>Giữ thứ tự trong file đầu phách</option></select></div>
+    <label class="check"><input type="checkbox" id="cOnly" ${cfg.onlyScored?"checked":""}> Chỉ đưa vào các môn đã có điểm</label>
+  </div>
+  ${colEditor("gocCols","Cột sheet Điểm gốc")}
+  ${colEditor("lopCols","Cột sheet Theo lớp")}`;
+  const B=$("#cfgBox");
+  const bind=(id,k,f=v=>v)=>{const el=B.querySelector("#"+id);el.onchange=()=>{cfg[k]=el.type==="checkbox"?el.checked:f(el.value);saveCfg();if(k==="decimals"){renderDs();renderPk()}}};
+  bind("cFile","fileName");bind("cTitle","title");bind("cSchool","school");bind("cDec","decimals",Number);bind("cAbs","absent");bind("cFormula","formulas");bind("cSort","lopSort");bind("cOnly","onlyScored");bind("cModel","model");
+  {const k=B.querySelector("#cKey");k.onchange=()=>{cfg.apiKey=k.value.trim();saveCfg();setAiMode();renderAll();toast(cfg.apiKey?"Đã lưu API key: bấm Đọc tự động ở tab Phiếu chấm.":"Đã xoá API key.")}}
+  B.querySelectorAll("[data-sh]").forEach(el=>el.onchange=()=>{cfg.sheets[el.dataset.sh]=el.checked;saveCfg()});
+  B.querySelectorAll("[data-cl]").forEach(el=>el.onchange=()=>{cfg[el.dataset.cl][+el.dataset.i][2]=el.checked?1:0;saveCfg()});
+  B.querySelectorAll("[data-cn]").forEach(el=>el.onchange=()=>{cfg[el.dataset.cn][+el.dataset.i][1]=el.value.trim()||cfg[el.dataset.cn][+el.dataset.i][1];saveCfg()});
+  const mv=(k,i,d)=>{const a=cfg[k];const j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];saveCfg();renderCfg()};
+  B.querySelectorAll("[data-up]").forEach(el=>el.onclick=()=>mv(el.dataset.up,+el.dataset.i,-1));
+  B.querySelectorAll("[data-dn]").forEach(el=>el.onclick=()=>mv(el.dataset.dn,+el.dataset.i,1));
+}
+function resetFlow(){$("#resetBox").innerHTML='<span class="confirm"><span class="help">Đưa cấu hình về mặc định?</span><button class="btn small primary" id="rsY" type="button">Đồng ý</button><button class="btn small" id="rsN" type="button">Huỷ</button></span>';
+  $("#rsY").onclick=()=>{const k=cfg.apiKey;cfg=structuredClone(DEFAULT_CFG);cfg.apiKey=k;saveCfg();renderCfg();restoreReset();toast("Đã khôi phục cấu hình mặc định")};$("#rsN").onclick=restoreReset}
+function restoreReset(){$("#resetBox").innerHTML='<button class="btn" id="bReset" type="button">Khôi phục mặc định</button>';$("#bReset").onclick=resetFlow}
+$("#bReset").onclick=resetFlow;
+
+/* ---------- XUẤT EXCEL ---------- */
+const FONT={name:"Arial",size:11};
+const HFILL={type:"pattern",pattern:"solid",fgColor:{argb:"FF1F4E79"}};
+const YFILL={type:"pattern",pattern:"solid",fgColor:{argb:"FFFFF2CC"}};
+const GFILL={type:"pattern",pattern:"solid",fgColor:{argb:"FFE2EFDA"}};
+const BORDER={top:{style:"thin",color:{argb:"FFBFBFBF"}},left:{style:"thin",color:{argb:"FFBFBFBF"}},bottom:{style:"thin",color:{argb:"FFBFBFBF"}},right:{style:"thin",color:{argb:"FFBFBFBF"}}};
+function colL(n){let s="";while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26)}return s}
+function header(ws,row,names,widths){const r=ws.getRow(row);names.forEach((n,i)=>{const c=r.getCell(i+1);c.value=n;c.font={...FONT,bold:true,color:{argb:"FFFFFFFF"}};c.fill=HFILL;c.border=BORDER;c.alignment={horizontal:"center",vertical:"middle",wrapText:true};ws.getColumn(i+1).width=widths[i]});r.height=30}
+function styleRow(r,n,opt={}){for(let i=1;i<=n;i++){const c=r.getCell(i);c.font={...FONT,...(c.font&&c.font.bold?{bold:true}:{})};c.border=BORDER;if(opt.fill)c.fill=opt.fill}}
+function absVal(){return cfg.absent==="-1"?-1:cfg.absent==="0"?0:cfg.absent}
+function numFmt(){return cfg.decimals==1?"0.0#":"0.00"}
+function safeSheet(n){return n.replace(/[\\\/\?\*\[\]:]/g," ").slice(0,31)}
+
+async function exportExcel(){
+  if(!MAP){toast("Cần mở file đầu phách trước khi xuất.");return}
+  if(!window.ExcelJS){toast("Thư viện Excel chưa tải xong, thử lại sau vài giây.");return}
+  const recs=buildRecords();
+  let mons=[...new Set(recs.map(r=>r.mp.base))];
+  if(cfg.onlyScored){const has=new Set(recs.filter(r=>r.st!=="Chưa có điểm").map(r=>r.mp.base));mons=mons.filter(m=>has.has(m))}
+  const useRecs=recs.filter(r=>mons.includes(r.mp.base));
+  const maxQ=Math.max(0,...useRecs.map(r=>(r.q||[]).reduce((a,v,i)=>v!=null?i+1:a,0)));
+  const wb=new ExcelJS.Workbook();wb.creator="Nhập Điểm Phiếu Chấm";wb.calcProperties.fullCalcOnLoad=true;
+  const NF=numFmt(),S=cfg.sheets;
+  const GN="Điểm gốc",PN="Phúc khảo";
+  // Tổng hợp
+  if(S.tonghop){
+    const ws=wb.addWorksheet("Tổng hợp");
+    ws.getCell("A1").value=cfg.title||"KẾT QUẢ KIỂM TRA";ws.getCell("A1").font={...FONT,bold:true,size:14,color:{argb:"FF1F4E79"}};
+    ws.getCell("A2").value=[cfg.school,`Nguồn mã phách: ${MAP.file}`,`Xuất lúc ${new Date().toLocaleString("vi-VN")}`].filter(Boolean).join(" · ");ws.getCell("A2").font={...FONT,italic:true,color:{argb:"FF595959"}};
+    header(ws,4,["Môn","Số bài","Có điểm","Vắng","Thiếu điểm","Chưa có điểm","Cần kiểm tra","Điểm TB","Cao nhất","Thấp nhất"],[14,10,10,10,11,12,12,10,10,10]);
+    const groups=[...new Set(useRecs.map(r=>r.mon))];
+    groups.forEach((g,i)=>{const L=useRecs.filter(r=>r.mon===g);const sc=L.filter(r=>typeof r.score==="number").map(r=>r.score);
+      const row=ws.getRow(5+i);row.values=[g,L.length,sc.length,L.filter(r=>r.st==="Vắng").length,L.filter(r=>r.st==="Thiếu điểm").length,L.filter(r=>r.st==="Chưa có điểm").length,L.filter(r=>r.st==="Cần kiểm tra").length,
+        sc.length?sc.reduce((a,b)=>a+b,0)/sc.length:"",sc.length?Math.max(...sc):"",sc.length?Math.min(...sc):""];
+      styleRow(row,10);[8,9,10].forEach(c=>row.getCell(c).numFmt=NF);row.getCell(1).font={...FONT,bold:true}});
+    const notes=["Cách dùng:",S.goc?"• \"Điểm gốc\": điểm đọc từ phiếu, theo danh sách phòng thi. Sau khi công bố không sửa điểm ở đây.":"",S.pk?"• \"Phúc khảo\": nhập SBD và điểm sau phúc khảo (ô màu xanh lá).":"",S.lop?"• \"Theo lớp\": mỗi học sinh một dòng, điểm các môn"+(cfg.formulas?"; tự lấy điểm phúc khảo nếu có (tô màu cam).":"."):"",S.kiemtra?"• \"Cần kiểm tra\": dòng có sửa chữa, tổng câu không khớp, thiếu điểm – nên đối chiếu bài gốc.":"",`• Học sinh vắng ghi là "${cfg.absent}".`].filter(Boolean);
+    notes.forEach((t,i)=>{const c=ws.getCell(7+groups.length+i,1);c.value=t;c.font={...FONT,bold:i===0}});
+  }
+  // Điểm gốc
+  const gocCols=[];for(const [k,n,on] of cfg.gocCols){if(!on)continue;if(k==="cau"){for(let i=0;i<maxQ;i++)gocCols.push(["cau"+i,"Câu "+(i+1)])}else gocCols.push([k,n])}
+  const gIdx=Object.fromEntries(gocCols.map((c,i)=>[c[0],i+1]));
+  const needGoc=S.goc||S.pk||S.lop||S.lopRieng; // các sheet khác tham chiếu vào đây
+  const W={stt:6,khoi:6,mon:9,phong:7,sbd:11,ten:26,ngaysinh:11,lop:12,phach:10,diem:8,trangthai:14,ghichu:46,nguon:18};
+  const useF=cfg.formulas&&needGoc&&gIdx.sbd&&gIdx.diem;
+  let gocRows=0;
+  if(needGoc){
+    const ws=wb.addWorksheet(GN,{views:[{state:"frozen",ySplit:1,xSplit:Math.min(gIdx.ten||0,6)}]});
+    header(ws,1,gocCols.map(c=>c[1]),gocCols.map(c=>W[c[0]]||7));
+    useRecs.forEach((r,i)=>{const row=ws.getRow(i+2);
+      const val={stt:i+1,khoi:r.mp.khoi,mon:r.mp.base,phong:r.room,sbd:r.sbd,ten:r.name,ngaysinh:r.dob,lop:r.lop,phach:r.phach,
+        diem:r.score==="V"?absVal():r.score,trangthai:r.st,ghichu:r.note,nguon:r.src};
+      for(let k=0;k<maxQ;k++)val["cau"+k]=r.q?.[k]??null;
+      gocCols.forEach((c,j)=>{const cell=row.getCell(j+1);const v=val[c[0]];cell.value=v===undefined?null:v;
+        if((c[0]==="diem"||c[0].startsWith("cau"))&&typeof v==="number")cell.numFmt=NF;
+        if(["stt","khoi","phong","ngaysinh","phach","diem","trangthai"].includes(c[0])||c[0].startsWith("cau"))cell.alignment={horizontal:"center"}});
+      styleRow(row,gocCols.length,{fill:(r.st==="Cần kiểm tra"||r.st==="Thiếu điểm")?YFILL:null});
+      if(gIdx.diem)row.getCell(gIdx.diem).font={...FONT,bold:true};
+      if(r.st==="Chưa có điểm")for(let j=1;j<=gocCols.length;j++)row.getCell(j).font={...FONT,color:{argb:"FF808080"}};
+    });
+    gocRows=useRecs.length;
+    ws.autoFilter={from:{row:1,column:1},to:{row:1,column:gocCols.length}};
+    if(!S.goc)ws.state="hidden";
+  }
+  // Phúc khảo
+  const recBySbd=Object.fromEntries(useRecs.map(r=>[r.sbd.toUpperCase(),r]));
+  if(S.pk){
+    const ws=wb.addWorksheet(PN,{views:[{state:"frozen",ySplit:2}]});
+    ws.mergeCells("A1:J1");const a1=ws.getCell("A1");a1.value="Chỉ nhập vào ô màu xanh lá: SBD, Điểm sau phúc khảo, Ngày, Ghi chú. Các cột khác tự điền. Mỗi SBD ghi 1 dòng.";a1.font={...FONT,italic:true,color:{argb:"FFC00000"}};a1.alignment={wrapText:true,vertical:"middle"};ws.getRow(1).height=28;
+    header(ws,2,["SBD","Họ và tên","Lớp","Môn","Mã phách","Điểm gốc","Điểm sau phúc khảo","Chênh lệch","Ngày phúc khảo","Ghi chú"],[11,26,12,10,10,10,12,10,13,36]);
+    const total=Math.max(300,PK.length+100);
+    for(let i=0;i<total;i++){const rn=i+3,row=ws.getRow(rn);const x=PK[i];const rec=x?recBySbd[x.sbd.toUpperCase()]:null;
+      row.getCell(1).value=x?x.sbd:null;
+      const look=(col,res)=>useF&&gIdx[col]?{formula:`IF(A${rn}="","",IFERROR(INDEX('${GN}'!$${colL(gIdx[col])}:$${colL(gIdx[col])},MATCH(A${rn},'${GN}'!$${colL(gIdx.sbd)}:$${colL(gIdx.sbd)},0)),"Không thấy SBD"))`,result:res??""}:(res??null);
+      row.getCell(2).value=look("ten",rec?.name);row.getCell(3).value=look("lop",rec?.lop);row.getCell(4).value=look("mon",rec?.mp.base);row.getCell(5).value=look("phach",rec?.phach);
+      const g=rec?(rec.score==="V"?absVal():rec.score):null;row.getCell(6).value=look("diem",g);
+      row.getCell(7).value=x?x.score:null;
+      const diff=x&&typeof g==="number"?x.score-g:"";
+      row.getCell(8).value=useF?{formula:`IF(OR(G${rn}="",NOT(ISNUMBER(F${rn}))),"",G${rn}-F${rn})`,result:diff}:(diff===""?null:diff);
+      row.getCell(9).value=x?x.date:null;row.getCell(10).value=x?x.note:null;
+      styleRow(row,10);[1,7,9,10].forEach(c=>row.getCell(c).fill=GFILL);[6,7,8].forEach(c=>{row.getCell(c).numFmt=NF;row.getCell(c).alignment={horizontal:"center"}});
+    }
+  }
+  // Theo lớp
+  if(S.lop||S.lopRieng){
+    const stu=new Map();
+    for(const r of useRecs){const k=norm(r.name)+"|"+r.dob+"|"+r.lop;if(!stu.has(k))stu.set(k,{name:r.name,dob:r.dob,lop:r.lop,ord:r.ord,by:{}});const s=stu.get(k);s.by[r.mp.base]=r;s.ord=Math.min(s.ord,r.ord)}
+    const lastName=n=>{const p=n.trim().split(/\s+/);return p[p.length-1]};
+    let list=[...stu.values()];
+    list.sort((a,b)=>{const lc=coll.compare(a.lop,b.lop);if(lc)return lc;
+      if(cfg.lopSort==="ten")return coll.compare(lastName(a.name),lastName(b.name))||coll.compare(a.name,b.name);
+      if(cfg.lopSort==="sbd"){const sa=Object.values(a.by)[0]?.sbd||"",sb=Object.values(b.by)[0]?.sbd||"";return sa.localeCompare(sb)}
+      return a.ord-b.ord});
+    const cols=[];for(const [k,n,on] of cfg.lopCols){if(!on)continue;
+      if(k==="sbd"){if(!cfg.lopCols.find(c=>c[0]==="diem"&&c[2]))mons.forEach(m=>cols.push(["sbd:"+m,"SBD "+m]))}
+      else if(k==="diem"){const showS=!!cfg.lopCols.find(c=>c[0]==="sbd"&&c[2]);mons.forEach(m=>{if(showS)cols.push(["sbd:"+m,"SBD "+m]);cols.push(["diem:"+m,m])})}
+      else cols.push([k,n])}
+    // nếu ẩn cột SBD mà vẫn dùng công thức thì cần SBD → dùng giá trị tĩnh
+    const LW={stt:6,lop:12,ttlop:8,ten:26,ngaysinh:11,ghichu:24};
+    const writeSheet=(name,items)=>{
+      const ws=wb.addWorksheet(safeSheet(name),{views:[{state:"frozen",ySplit:1,xSplit:Math.min(cols.findIndex(c=>c[0]==="ten")+1,5)}]});
+      header(ws,1,cols.map(c=>c[1]),cols.map(c=>c[0].startsWith("sbd:")?11:c[0].startsWith("diem:")?9:(LW[c[0]]||10)));
+      let prev=null,n=0;
+      items.forEach((s,i)=>{const rn=i+2,row=ws.getRow(rn);n=s.lop===prev?n+1:1;prev=s.lop;
+        let anyPk=false;
+        cols.forEach((c,j)=>{const cell=row.getCell(j+1);const [k,m]=c[0].split(":");
+          if(k==="stt")cell.value=i+1;else if(k==="lop")cell.value=s.lop;else if(k==="ttlop")cell.value=n;else if(k==="ten")cell.value=s.name;else if(k==="ngaysinh")cell.value=s.dob;
+          else if(k==="sbd"){cell.value=s.by[m]?.sbd||null;cell.alignment={horizontal:"center"}}
+          else if(k==="diem"){const r=s.by[m];const pk=r?pkOf(r.sbd):null;if(pk)anyPk=true;
+            const g=r?(r.score==="V"?absVal():r.score):null;const res=pk?pk.score:(g??"");
+            const sbdCol=cols.findIndex(x=>x[0]==="sbd:"+m)+1;
+            if(useF&&r&&sbdCol&&S.pk){const sb=colL(sbdCol)+rn,gs=`'${GN}'!$${colL(gIdx.sbd)}:$${colL(gIdx.sbd)}`,gd=`'${GN}'!$${colL(gIdx.diem)}:$${colL(gIdx.diem)}`;
+              const gm=`INDEX(${gd},MATCH(${sb},${gs},0))`;
+              cell.value={formula:`IF(${sb}="","",IF(COUNTIFS('${PN}'!$A:$A,${sb},'${PN}'!$G:$G,"<>")>0,INDEX('${PN}'!$G:$G,MATCH(${sb},'${PN}'!$A:$A,0)),IF(${gm}="","",${gm})))`,result:res}}
+            else cell.value=res===""?null:res;
+            cell.numFmt=NF;cell.alignment={horizontal:"center"}}
+          else if(k==="ghichu"){
+            const sbdCols=cols.map((x,ii)=>x[0].startsWith("sbd:")?colL(ii+1)+rn:null).filter(Boolean);
+            if(useF&&S.pk&&sbdCols.length)cell.value={formula:`IF(${sbdCols.map(a=>`COUNTIFS('${PN}'!$A:$A,${a},'${PN}'!$G:$G,"<>")*(${a}<>"")`).join("+")}>0,"Có phúc khảo","")`,result:anyPk?"Có phúc khảo":""};
+            else cell.value=anyPk?"Có phúc khảo":null}
+        });
+        styleRow(row,cols.length);cols.forEach((c,j)=>{if(c[0].startsWith("diem:"))row.getCell(j+1).font={...FONT,bold:true}});
+        ["stt","ttlop","ngaysinh"].forEach(k=>{const j=cols.findIndex(c=>c[0]===k);if(j>=0)row.getCell(j+1).alignment={horizontal:"center"}});
+      });
+      // tô cam điểm đã phúc khảo
+      if(S.pk)cols.forEach((c,j)=>{if(!c[0].startsWith("diem:"))return;const m=c[0].slice(5);const sc=cols.findIndex(x=>x[0]==="sbd:"+m);if(sc<0||!items.length)return;
+        const L=colL(j+1),SL=colL(sc+1);ws.addConditionalFormatting({ref:`${L}2:${L}${items.length+1}`,rules:[{type:"expression",priority:1,formulae:[`AND(${SL}2<>"",COUNTIF('${PN}'!$A:$A,${SL}2)>0)`],style:{fill:{type:"pattern",pattern:"solid",bgColor:{argb:"FFF8CBAD"}}}}]})});
+      ws.autoFilter={from:{row:1,column:1},to:{row:1,column:cols.length}};
+    };
+    if(S.lop)writeSheet("Theo lớp",list);
+    if(S.lopRieng){const lops=[...new Set(list.map(s=>s.lop))];const used=new Set(wb.worksheets.map(w=>w.name));
+      lops.forEach(l=>{let nm=safeSheet(l);let k=2;while(used.has(nm))nm=safeSheet(l).slice(0,28)+" "+k++;used.add(nm);writeSheet(nm,list.filter(s=>s.lop===l))})}
+  }
+  // Cần kiểm tra
+  if(S.kiemtra){
+    const ws=wb.addWorksheet("Cần kiểm tra",{views:[{state:"frozen",ySplit:1}]});
+    const qn=Math.max(maxQ,1);
+    header(ws,1,["STT","Mã phách","SBD","Họ và tên","Lớp","Môn",...Array.from({length:qn},(_,i)=>"Câu "+(i+1)),"Điểm đã nhận","Trạng thái","Vấn đề","Nguồn (file - trang)","Đã kiểm tra"],[6,10,11,24,12,10,...Array(qn).fill(7),11,13,60,18,11]);
+    const res=results(),dup=dupPhach();const items=[];
+    for(const p of PAGES)p.rows.forEach(r=>{const iss=rowIssues(r,dup);if(!iss.length)return;const m=byPhach[(r.phach||"").toUpperCase()];items.push({r,p,m,iss})});
+    items.forEach((it,i)=>{const row=ws.getRow(i+2);const r=it.r;
+      row.values=[i+1,r.phach,it.m?.sbd||"",it.m?.name||"",it.m?.lop||"",it.m?.mon||"",...Array.from({length:qn},(_,k)=>r.q?.[k]??null),r.total===-1?absVal():r.total,r.checked?"Đã đối chiếu":(r.total==null?"Thiếu điểm":"Cần kiểm tra"),it.iss.map(x=>x[1]).join("; "),`${it.p.file} - tr.${it.p.n}`,r.checked?"✓":null];
+      styleRow(row,qn+11);for(let k=0;k<=qn;k++)row.getCell(7+k).numFmt=NF;row.getCell(qn+9).alignment={wrapText:true,vertical:"middle"};row.getCell(qn+11).fill=GFILL});
+  }
+  if(!wb.worksheets.filter(w=>w.state!=="hidden").length){toast("Hãy bật ít nhất một sheet trong Cấu hình xuất.");return}
+  const buf=await wb.xlsx.writeBuffer();
+  const d=new Date(),ds=`${String(d.getDate()).padStart(2,"0")}-${String(d.getMonth()+1).padStart(2,"0")}-${d.getFullYear()}`;
+  const fname=(cfg.fileName||"Diem").replace("{ky_thi}",norm(cfg.title||"").replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"").toUpperCase()||"KT").replace("{ngay}",ds).replace(/[\\\/:*?"<>|]/g,"_")+".xlsx";
+  await saveFile(fname,new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+}
+async function saveFile(name,blob){
+  let dl=null;try{dl=window.claude?.use?await claude.use("downloads"):null}catch(e){}
+  if(dl){try{await dl.save({filename:name,data:blob});toast("Đã lưu "+name)}catch(e){toast(e?.code==="declined"?"Đã huỷ lưu file.":"Không lưu được file ("+(e?.code||e?.message)+").")}return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);toast("Đã tạo "+name);
+}
+$("#st4").onclick=$("#bExport2").onclick=$("#bExport3").onclick=()=>exportExcel().catch(e=>{console.error(e);toast("Xuất Excel lỗi: "+e.message)});
+
+/* ---------- TABS & BƯỚC ---------- */
+function showTab(v){document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.v===v));document.querySelectorAll(".view").forEach(s=>s.hidden=s.id!=="v-"+v);
+  if(v==="ds")renderDs();if(v==="pk")renderPk();if(v==="cfg")renderCfg();if(v==="phieu")renderCanvas()}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>showTab(t.dataset.v));
+function updateSteps(){
+  $("#st1").classList.toggle("done",!!MAP);$("#st1s").textContent=MAP?`${MAP.rows.length} mã phách · ${MAP.file}`:"Chưa mở (.xlsx)";
+  const files=[...new Set(PAGES.map(p=>p.file))];$("#st2").classList.toggle("done",PAGES.length>0);
+  $("#st2s").textContent=PAGES.length?`${PAGES.length} trang · ${files.length} file`:"Chưa mở";
+  const read=PAGES.filter(p=>p.rows.length).length;$("#st3").classList.toggle("done",PAGES.length&&read===PAGES.length);
+  $("#st3s").textContent=`${read}/${PAGES.length} trang đã đọc`;
+  $("#cPages").textContent=PAGES.length;$("#cStu").textContent=MAP?MAP.rows.length:0;$("#cPk").textContent=PK.length;
+  $("#bRun").hidden=!AI;
+  const need=PAGES.filter(p=>!PDFS[p.file]).length;
+  $("#runMsg").textContent=!MAP&&!PAGES.length?"Mở file đầu phách (bước 1) và file PDF phiếu chấm (bước 2) để bắt đầu.":
+    need?`${need} trang đã lưu kết quả nhưng chưa có ảnh: mở lại file PDF để xem hoặc đọc tiếp.`:
+    !AI?"Nhập điểm tay ở bảng bên phải: Enter để xuống dòng.":($("#runMsg").textContent.startsWith("Đã đọc")?$("#runMsg").textContent:"Sẵn sàng. Bấm Đọc tự động: Claude đọc từng trang, bạn soát các dòng tô màu.");
+}
+function renderAll(){updateSteps();renderPageList();renderTable();if(!$("#v-ds").hidden)renderDs();if(!$("#v-pk").hidden)renderPk()}
+renderAll();
+if(PAGES.length&&!cur)selectPage(PAGES[0].key);
+})();
+</script>
+</body>
+</html>
