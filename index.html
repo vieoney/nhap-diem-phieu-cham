@@ -119,6 +119,8 @@ td input.ph{width:76px;font-family:var(--f-mono);border:1px solid var(--line);bo
 .cfg .panel{padding-bottom:6px}
 .fld{display:grid;gap:4px;padding:8px 12px}
 .fld label{font-size:13px;color:var(--muted);font-weight:500}
+.fld input,.fld select{width:100%;min-width:0;max-width:100%}
+.fld .help{font-size:12.5px}
 .check{display:flex;align-items:center;gap:8px;padding:4px 12px;font-size:14px}
 .cols{padding:4px 8px 8px}
 .colrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:3px 4px;border-radius:6px}
@@ -275,7 +277,12 @@ const DEFAULT_CFG={
   lopSort:"ten",
   onlyScored:false,
   model:"default",
-  apiKey:""
+  apiKey:"",
+  provider:"gemini",
+  geminiKey:"",
+  geminiModel:"gemini-flash-latest",
+  ollamaUrl:"http://localhost:11434",
+  ollamaModel:"qwen2.5vl:7b"
 };
 let cfg=Object.assign(structuredClone(DEFAULT_CFG),lsGet("cfg",{}));
 cfg.sheets=Object.assign({},DEFAULT_CFG.sheets,cfg.sheets||{});
@@ -422,7 +429,7 @@ function renderTable(){
   $("#bReread").disabled=!p||!PDFS[p?.file]||!AI;
   if(!p){w.innerHTML='<div class="empty">Chọn một trang ở cột bên trái.</div>';foot.hidden=true;$("#tblTitle").textContent="Điểm đọc được";return}
   const bag=bagOf(p);$("#tblTitle").textContent=`Điểm đọc được${bag?" · túi "+bag:""}`;
-  if(p.status==="run"){w.innerHTML='<div class="empty">Claude đang đọc trang này…</div>';foot.hidden=true;return}
+  if(p.status==="run"){w.innerHTML='<div class="empty">Đang đọc trang này…</div>';foot.hidden=true;return}
   if(p.status==="err"&&!p.rows.length){w.innerHTML=`<div class="empty">Đọc không thành công: ${esc(p.err||"")}<br>Bấm <b>Đọc lại trang này</b>, hoặc <b>+ Thêm dòng</b> để nhập tay.</div>`;foot.hidden=false;$("#pgMiss").textContent="";return}
   if(!p.rows.length){w.innerHTML=`<div class="empty">Trang này chưa được đọc.<br>${AI?"Bấm <b>Đọc lại trang này</b> hoặc <b>Đọc tự động</b> ở trên.":"Bấm <b>+ Thêm dòng</b> để nhập tay."}</div>`;foot.hidden=false;$("#pgMiss").textContent="";return}
   const q=Math.max(nQ(p),1),dup=dupPhach();
@@ -477,10 +484,35 @@ const MODELS={default:"claude-sonnet-5-5",complex:"claude-opus-5-5",quick:"claud
 })();
 function setAiMode(){
   if(SAMPLE){AI="claude";AIimg=Math.max(AIimg,1)}
-  else if(cfg.apiKey){AI="api";AIimg=2}
+  else if(cfg.provider==="gemini"&&cfg.geminiKey){AI="gemini";AIimg=2}
+  else if(cfg.provider==="ollama"&&cfg.ollamaModel){AI="ollama";AIimg=2}
+  else if(cfg.provider==="claude"&&cfg.apiKey){AI="api";AIimg=2}
   else AI=null;
   const n=$("#aiNote");n.hidden=!!AI;
-  if(!AI)n.innerHTML='Chưa bật <b>đọc tự động</b>. Vào tab <b>Cấu hình xuất Excel</b> → nhập <b>API key của Claude</b> (lấy tại console.anthropic.com) để app tự đọc điểm từ ảnh phiếu. Không có key thì vẫn xem ảnh phiếu, nhập tay và xuất Excel bình thường.';
+  if(!AI)n.innerHTML='Chưa bật <b>đọc tự động</b>. Vào tab <b>Cấu hình xuất Excel</b> → mục <b>Đọc tự động</b>: chọn <b>Google Gemini</b> và dán key miễn phí (lấy tại aistudio.google.com), hoặc dùng mô hình chạy trên máy (Ollama). Không có key thì vẫn xem ảnh phiếu, nhập tay và xuất Excel bình thường.';
+}
+async function geminiJson(prompt,b64,signal){
+  let r;const model=encodeURIComponent(cfg.geminiModel||"gemini-flash-latest");
+  try{r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:"POST",signal,
+    headers:{"content-type":"application/json","x-goog-api-key":cfg.geminiKey},
+    body:JSON.stringify({contents:[{role:"user",parts:[...b64.map(d=>({inline_data:{mime_type:"image/jpeg",data:d}})),{text:prompt}]}],
+      generationConfig:{responseMimeType:"application/json",temperature:0}})})}
+  catch(e){if(e?.name==="AbortError")throw{code:"cancelled"};throw{code:"network",message:String(e?.message||e)}}
+  if(!r.ok){const t=await r.text().catch(()=>"");
+    throw{code:/API_KEY_INVALID|API key not valid|PERMISSION_DENIED/i.test(t)||r.status===401||r.status===403?"bad_key":r.status===429?"rate_limited":r.status===404?"bad_model":"upstream_error",message:t.slice(0,300)}}
+  const j=await r.json();
+  const text=(j.candidates?.[0]?.content?.parts||[]).map(x=>x.text||"").join("");
+  if(!text)throw{code:"refused",message:JSON.stringify(j.promptFeedback||j).slice(0,200)};
+  return parseJsonLoose(text);
+}
+async function ollamaJson(prompt,b64,signal){
+  let r;const base=(cfg.ollamaUrl||"http://localhost:11434").replace(/\/+$/,"");
+  try{r=await fetch(base+"/api/chat",{method:"POST",signal,headers:{"content-type":"application/json"},
+    body:JSON.stringify({model:cfg.ollamaModel,stream:false,format:"json",options:{temperature:0,num_ctx:8192},
+      messages:[{role:"user",content:prompt,images:b64}]})})}
+  catch(e){if(e?.name==="AbortError")throw{code:"cancelled"};throw{code:"ollama_down",message:String(e?.message||e)}}
+  if(!r.ok){const t=await r.text().catch(()=>"");throw{code:r.status===404?"bad_model":"upstream_error",message:t.slice(0,300)}}
+  const j=await r.json();return parseJsonLoose(j.message?.content||"");
 }
 function blobToB64(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(b)})}
 function parseJsonLoose(t){
@@ -492,6 +524,8 @@ function parseJsonLoose(t){
 async function aiJson(prompt,imgs,signal){
   if(AI==="claude")return SAMPLE.json(prompt,{images:imgs,signal,modelTier:cfg.model||"default"});
   const b64=await Promise.all(imgs.map(blobToB64));
+  if(AI==="gemini")return geminiJson(prompt,b64,signal);
+  if(AI==="ollama")return ollamaJson(prompt,b64,signal);
   let r;
   try{
     r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal,
@@ -552,12 +586,12 @@ async function readPage(p){
     p.status="err";p.err=e?.code==="cancelled"?"Đã dừng":errText(e);
     if(e?.code==="cancelled")p.status=p.rows.length?"done":"wait";
     if(["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed","images_unavailable"].includes(e?.code)){SAMPLE=null;setAiMode();throw e}
-    if(["bad_key","bad_model","network"].includes(e?.code))throw e;
+    if(["bad_key","bad_model","network","ollama_down"].includes(e?.code))throw e;
     if(e?.code==="rate_limited")throw e;
     if(e?.code==="cancelled")throw e;
   }finally{savePages();renderPageList();if(cur===p.key)renderTable();updateSteps()}
 }
-function errText(e){return({rate_limited:"Claude đang quá tải hoặc bạn đã hết lượt dùng, thử lại sau ít phút.",invalid_json:"Kết quả trả về không đúng định dạng, bấm Đọc lại.",refused:"Claude không đọc trang này.",image_rejected:"Ảnh trang không hợp lệ.",session_expired:"Phiên đăng nhập đã hết hạn, hãy đăng nhập lại.",bad_key:"API key không đúng hoặc đã hết hạn: kiểm tra lại trong tab Cấu hình.",bad_model:"Không tìm thấy model: đổi Mức độ đọc trong tab Cấu hình.",network:"Không kết nối được tới Claude: kiểm tra mạng Internet.",upstream_error:"Lỗi kết nối, bấm Đọc lại."})[e?.code]||("Lỗi: "+(e?.message||e))}
+function errText(e){return({rate_limited:"Đã hết lượt dùng tạm thời (gói miễn phí giới hạn số lượt mỗi phút/ngày). Đợi ít phút rồi bấm Đọc tự động để đọc tiếp các trang còn lại.",invalid_json:"Kết quả trả về không đúng định dạng, bấm Đọc lại.",refused:"Claude không đọc trang này.",image_rejected:"Ảnh trang không hợp lệ.",session_expired:"Phiên đăng nhập đã hết hạn, hãy đăng nhập lại.",bad_key:"API key không đúng hoặc đã hết hạn: kiểm tra lại trong tab Cấu hình.",bad_model:"Không tìm thấy mô hình: kiểm tra tên mô hình trong tab Cấu hình (với Ollama: đã chạy lệnh ollama pull chưa?).",network:"Không kết nối được tới máy chủ AI: kiểm tra mạng Internet.",ollama_down:"Không kết nối được Ollama: kiểm tra Ollama đang chạy và đã đặt OLLAMA_ORIGINS=* rồi mở lại Ollama.",upstream_error:"Lỗi kết nối, bấm Đọc lại."})[e?.code]||("Lỗi: "+(e?.message||e))}
 $("#bRun").onclick=async()=>{
   if(!AI){toast("Đọc tự động chưa dùng được trong phiên này.");return}
   const todo=PAGES.filter(p=>PDFS[p.file]&&(p.status==="wait"||p.status==="err"));
@@ -569,7 +603,16 @@ $("#bRun").onclick=async()=>{
     $("#runMsg").textContent=`Đang đọc ${p.file} · trang ${p.n} (${done+1}/${todo.length})…`;
     $("#prog").style.width=(done/todo.length*100)+"%";
     if(!cur)selectPage(p.key);
-    try{await readPage(p)}catch(e){if(e?.code==="cancelled"){break}toast(errText(e));break}
+    let ok=false;
+    for(let attempt=0;attempt<4&&running;attempt++){
+      try{await readPage(p);ok=true;break}
+      catch(e){
+        if(e?.code==="rate_limited"&&AI==="gemini"&&attempt<3){
+          for(let w=65;w>0&&running;w--){$("#runMsg").textContent=`Gói miễn phí đang giới hạn lượt gọi. Tự đọc tiếp sau ${w} giây… (trang ${p.n}, ${done+1}/${todo.length})`;await new Promise(r=>setTimeout(r,1000))}
+          continue}
+        if(e?.code!=="cancelled")toast(errText(e));break}
+    }
+    if(!ok)break;
     done++;
   }
   $("#prog").style.width=(done/todo.length*100)+"%";
@@ -656,8 +699,28 @@ function renderCfg(){
     <div class="fld"><label for="cDec">Định dạng điểm</label><select id="cDec"><option value="2"${cfg.decimals==2?" selected":""}>2 chữ số thập phân (5.00, 7.25)</option><option value="1"${cfg.decimals==1?" selected":""}>1 chữ số (5.0) – điểm lẻ 0,25 vẫn giữ đủ</option></select></div>
     <div class="fld"><label for="cAbs">Ghi học sinh vắng là</label><select id="cAbs">${["V","Vắng","-1","0"].map(v=>`<option${cfg.absent===v?" selected":""}>${v}</option>`).join("")}</select></div>
     <label class="check"><input type="checkbox" id="cFormula" ${cfg.formulas?"checked":""}> Dùng công thức liên kết (sửa ở sheet Phúc khảo → sheet Theo lớp tự cập nhật)</label>
-    <div class="fld"><label for="cKey">API key của Claude (để đọc tự động)</label><input id="cKey" type="password" autocomplete="off" placeholder="sk-ant-…" value="${esc(cfg.apiKey||"")}"><span class="help">${SAMPLE?"Đang mở trên Claude nên không cần key.":"Lấy key tại console.anthropic.com → API Keys. Key chỉ lưu trên máy này; ảnh phiếu được gửi tới Claude để đọc."}</span></div>
-    <div class="fld"><label for="cModel">Đọc tự động: mức độ</label><select id="cModel"><option value="default"${cfg.model==="default"?" selected":""}>Cân bằng (khuyên dùng)</option><option value="complex"${cfg.model==="complex"?" selected":""}>Chính xác nhất (chậm hơn)</option><option value="quick"${cfg.model==="quick"?" selected":""}>Nhanh (dễ đọc sai chữ viết tay)</option></select></div>
+  </div>
+  <div class="panel"><h2>Đọc tự động (AI đọc chữ viết tay)</h2>
+    ${SAMPLE?'<div class="fld"><span class="help">Đang mở trên Claude: tự dùng tài khoản Claude của bạn, không cần cấu hình gì thêm.</span></div>':`
+    <div class="fld"><label for="cProv">Dùng mô hình nào</label><select id="cProv">
+      <option value="gemini"${cfg.provider==="gemini"?" selected":""}>Google Gemini (có gói miễn phí)</option>
+      <option value="ollama"${cfg.provider==="ollama"?" selected":""}>Mô hình chạy trên máy – Ollama (miễn phí, không gửi dữ liệu ra ngoài)</option>
+      <option value="claude"${cfg.provider==="claude"?" selected":""}>Claude API (trả phí, đọc chính xác nhất)</option></select></div>
+    <div data-p="gemini"${cfg.provider==="gemini"?"":" hidden"}>
+      <div class="fld"><label for="cGKey">Gemini API key</label><input id="cGKey" type="password" autocomplete="off" placeholder="AIza…" value="${esc(cfg.geminiKey||"")}">
+        <span class="help">Lấy miễn phí: vào aistudio.google.com → đăng nhập Gmail → <b>Get API key</b> → <b>Create API key</b> → sao chép dán vào đây. Gói miễn phí có giới hạn số lượt mỗi phút/ngày; Google có thể dùng dữ liệu gửi qua gói miễn phí để cải thiện sản phẩm.</span></div>
+      <div class="fld"><label for="cGModel">Tên mô hình</label><input id="cGModel" value="${esc(cfg.geminiModel)}"><span class="help">Để nguyên "gemini-flash-latest" (luôn trỏ bản Flash mới nhất).</span></div>
+    </div>
+    <div data-p="ollama"${cfg.provider==="ollama"?"":" hidden"}>
+      <div class="fld"><label for="cOUrl">Địa chỉ Ollama</label><input id="cOUrl" value="${esc(cfg.ollamaUrl)}"></div>
+      <div class="fld"><label for="cOModel">Tên mô hình</label><input id="cOModel" value="${esc(cfg.ollamaModel)}">
+        <span class="help">Cài đặt một lần: (1) tải Ollama tại ollama.com và cài; (2) mở Command Prompt gõ <span class="kbd">ollama pull qwen2.5vl:7b</span>; (3) gõ <span class="kbd">setx OLLAMA_ORIGINS "*"</span> rồi tắt và mở lại Ollama. Máy nên có từ 16 GB RAM hoặc card đồ hoạ rời; mỗi trang mất khoảng 30 giây đến vài phút, và đọc chữ viết tay kém hơn Gemini/Claude.</span></div>
+    </div>
+    <div data-p="claude"${cfg.provider==="claude"?"":" hidden"}>
+      <div class="fld"><label for="cKey">Claude API key</label><input id="cKey" type="password" autocomplete="off" placeholder="sk-ant-…" value="${esc(cfg.apiKey||"")}"><span class="help">Lấy tại console.anthropic.com → API Keys (cần nạp tiền).</span></div>
+    </div>`}
+    ${SAMPLE||cfg.provider==="claude"?`<div class="fld"><label for="cModel">Mức độ đọc</label><select id="cModel"><option value="default"${cfg.model==="default"?" selected":""}>Cân bằng (khuyên dùng)</option><option value="complex"${cfg.model==="complex"?" selected":""}>Chính xác nhất (chậm hơn)</option><option value="quick"${cfg.model==="quick"?" selected":""}>Nhanh (dễ đọc sai chữ viết tay)</option></select></div>`:""}
+    <div class="fld"><span class="help">Key chỉ lưu trên máy này. Đừng chia sẻ key cho người khác.</span></div>
   </div>
   <div class="panel"><h2>Các sheet trong file</h2>
     <label class="check"><input type="checkbox" data-sh="tonghop" ${s.tonghop?"checked":""}> Tổng hợp (thống kê theo môn)</label>
@@ -673,8 +736,9 @@ function renderCfg(){
   ${colEditor("lopCols","Cột sheet Theo lớp")}`;
   const B=$("#cfgBox");
   const bind=(id,k,f=v=>v)=>{const el=B.querySelector("#"+id);el.onchange=()=>{cfg[k]=el.type==="checkbox"?el.checked:f(el.value);saveCfg();if(k==="decimals"){renderDs();renderPk()}}};
-  bind("cFile","fileName");bind("cTitle","title");bind("cSchool","school");bind("cDec","decimals",Number);bind("cAbs","absent");bind("cFormula","formulas");bind("cSort","lopSort");bind("cOnly","onlyScored");bind("cModel","model");
-  {const k=B.querySelector("#cKey");k.onchange=()=>{cfg.apiKey=k.value.trim();saveCfg();setAiMode();renderAll();toast(cfg.apiKey?"Đã lưu API key: bấm Đọc tự động ở tab Phiếu chấm.":"Đã xoá API key.")}}
+  bind("cFile","fileName");bind("cTitle","title");bind("cSchool","school");bind("cDec","decimals",Number);bind("cAbs","absent");bind("cFormula","formulas");bind("cSort","lopSort");bind("cOnly","onlyScored");if(B.querySelector("#cModel"))bind("cModel","model");
+  const aiF=(id,k)=>{const el=B.querySelector("#"+id);if(!el)return;el.onchange=()=>{cfg[k]=el.value.trim();saveCfg();setAiMode();renderAll();if(k==="provider")renderCfg();else toast(AI?"Đã lưu. Bấm Đọc tự động ở tab Phiếu chấm.":"Đã lưu.")}};
+  aiF("cProv","provider");aiF("cGKey","geminiKey");aiF("cGModel","geminiModel");aiF("cOUrl","ollamaUrl");aiF("cOModel","ollamaModel");aiF("cKey","apiKey");
   B.querySelectorAll("[data-sh]").forEach(el=>el.onchange=()=>{cfg.sheets[el.dataset.sh]=el.checked;saveCfg()});
   B.querySelectorAll("[data-cl]").forEach(el=>el.onchange=()=>{cfg[el.dataset.cl][+el.dataset.i][2]=el.checked?1:0;saveCfg()});
   B.querySelectorAll("[data-cn]").forEach(el=>el.onchange=()=>{cfg[el.dataset.cn][+el.dataset.i][1]=el.value.trim()||cfg[el.dataset.cn][+el.dataset.i][1];saveCfg()});
@@ -683,7 +747,7 @@ function renderCfg(){
   B.querySelectorAll("[data-dn]").forEach(el=>el.onclick=()=>mv(el.dataset.dn,+el.dataset.i,1));
 }
 function resetFlow(){$("#resetBox").innerHTML='<span class="confirm"><span class="help">Đưa cấu hình về mặc định?</span><button class="btn small primary" id="rsY" type="button">Đồng ý</button><button class="btn small" id="rsN" type="button">Huỷ</button></span>';
-  $("#rsY").onclick=()=>{const k=cfg.apiKey;cfg=structuredClone(DEFAULT_CFG);cfg.apiKey=k;saveCfg();renderCfg();restoreReset();toast("Đã khôi phục cấu hình mặc định")};$("#rsN").onclick=restoreReset}
+  $("#rsY").onclick=()=>{const keep={};["apiKey","provider","geminiKey","geminiModel","ollamaUrl","ollamaModel"].forEach(k=>keep[k]=cfg[k]);cfg=Object.assign(structuredClone(DEFAULT_CFG),keep);saveCfg();renderCfg();restoreReset();toast("Đã khôi phục cấu hình mặc định")};$("#rsN").onclick=restoreReset}
 function restoreReset(){$("#resetBox").innerHTML='<button class="btn" id="bReset" type="button">Khôi phục mặc định</button>';$("#bReset").onclick=resetFlow}
 $("#bReset").onclick=resetFlow;
 
